@@ -1,22 +1,25 @@
-# Use a imagem base oficial do Python
-FROM python:3.9
+# Use imagem Python oficial
+FROM python:3.10-slim
 
-# Defina o diretório de trabalho dentro do contêiner
+# Define diretório de trabalho
 WORKDIR /app
 
-# Copie os arquivos de requisitos para o diretório de trabalho
+# Copia apenas o requirements.txt primeiro para instalar dependências
 COPY requirements.txt .
 
-# Instale as dependências necessárias
+# Instala dependências
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copie todo o conteúdo do diretório atual para o diretório de trabalho no contêiner
+# Copia todo o projeto
 COPY . .
 
-# Exponha a porta na qual a aplicação irá rodar
+# Expõe a porta 5000
 EXPOSE 5000
 
-COPY ./quimidocs /app/quimidocs
+# Define variável para Flask localizar o app
+ENV FLASK_APP=run.py
+ENV FLASK_RUN_HOST=0.0.0.0
+ENV FLASK_RUN_PORT=5000
 
-# Defina o comando para executar a aplicação
-CMD ["flask", "run", "--host=0.0.0.0"]
+# Usa Flask CLI para rodar a aplicação
+CMD ["flask", "run"]

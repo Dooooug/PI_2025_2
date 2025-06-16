@@ -1,29 +1,55 @@
-import psycopg2
+# app.py ou config.py (onde você configura o MongoDB)
 import os
-from dotenv import load_dotenv
+from pymongo import MongoClient
+import logging
 
-# Carrega variáveis de ambiente
-load_dotenv()
+# Configuração de log
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-try:
-    connection = psycopg2.connect(
-        host=os.getenv('DB_HOST', 'localhost'),
-        port=os.getenv('DB_PORT', 5432),
-        user=os.getenv('DB_USER', 'user'),
-        password=os.getenv('DB_PASSWORD', '204314'),
-        dbname=os.getenv('DB_NAME', 'user_db')
-    )
-    print("Conexão com o banco de dados bem-sucedida!")
-except psycopg2.OperationalError as e:
-    print("Erro operacional! Verifique as credenciais ou o servidor do banco.")
-    print(f"Detalhes: {e}")
-except Exception as e:
-    print("Erro inesperado ao conectar ao banco.")
-    print(f"Detalhes: {e}")
-finally:
+def connect_to_mongodb():
     try:
-        if connection:
-            connection.close()
-            print("Conexão fechada com sucesso.")
-    except NameError:
-        print("A conexão não foi criada devido ao erro.")
+        # Certifique-se de que essas variáveis de ambiente estão definidas
+        MONGO_HOST = os.getenv('MONGO_HOST')
+        MONGO_PORT = os.getenv('MONGO_PORT', '27017') # Valor padrão para porta
+        MONGO_USER = os.getenv('MONGO_USER')
+        MONGO_PASSWORD = os.getenv('MONGO_PASSWORD')
+        MONGO_DB_NAME = os.getenv('MONGO_DB_NAME')
+
+        # Verificação para depuração: imprime os valores das variáveis
+        logger.info(f"MONGO_HOST: {MONGO_HOST}")
+        logger.info(f"MONGO_PORT: {MONGO_PORT}")
+        logger.info(f"MONGO_USER: {'*' * len(MONGO_USER) if MONGO_USER else None}") # Não logar a senha real
+        logger.info(f"MONGO_DB_NAME: {MONGO_DB_NAME}")
+
+        # Verifique se alguma variável essencial é None
+        if not all([MONGO_HOST, MONGO_USER, MONGO_PASSWORD, MONGO_DB_NAME]):
+            logger.error("Uma ou mais variáveis de ambiente do MongoDB não foram definidas. Verifique MONGO_HOST, MONGO_USER, MONGO_PASSWORD, MONGO_DB_NAME.")
+            raise ValueError("Configurações do MongoDB incompletas.")
+
+        # Construa a URI de conexão
+        if MONGO_USER and MONGO_PASSWORD:
+            mongo_uri = f"mongodb://{MONGO_USER}:{MONGO_PASSWORD}@{MONGO_HOST}:{MONGO_PORT}/{MONGO_DB_NAME}"
+        else:
+            # Caso não use autenticação (menos comum em produção)
+            mongo_uri = f"mongodb://{MONGO_HOST}:{MONGO_PORT}/{MONGO_DB_NAME}"
+
+        client = MongoClient(mongo_uri)
+        db = client[MONGO_DB_NAME]
+        logger.info("Conexão ao MongoDB estabelecida com sucesso!")
+        return db
+    except ValueError as ve:
+        logger.error(f"Erro de configuração ao conectar ao MongoDB: {ve}")
+        return None
+    except Exception as e:
+        logger.error(f"Erro inesperado ao conectar ao MongoDB: {e}")
+        return None
+
+# No seu arquivo principal da aplicação Flask (ex: app.py)
+# db_connection = connect_to_mongodb()
+# if db_connection:
+#     # Use db_connection para interagir com o MongoDB
+#     pass
+# else:
+#     # Lidar com o caso de falha na conexão (ex: sair da aplicação ou mostrar erro)
+#     pass

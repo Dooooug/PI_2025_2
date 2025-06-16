@@ -1,37 +1,170 @@
-from . import db, bcrypt
-from werkzeug.security import generate_password_hash, check_password_hash
+# app/models.py
 
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    nome = db.Column(db.String(500), nullable=False)
-    email = db.Column(db.String(500), unique=True, nullable=False)
-    senha_hash = db.Column(db.String(500), nullable=False)
+from pymongo.collection import Collection
+from bson.objectid import ObjectId
 
-    def set_password(self, password):
-        self.senha_hash = generate_password_hash(password)
+class User:
+    _collection: Collection = None
 
-    def check_password(self, password):
-        return check_password_hash(self.senha_hash, password)
+    def __init__(self, username, password_hash, role, _id=None):
+        self._id = _id
+        self.username = username
+        self.password_hash = password_hash
+        self.role = role
 
-class Product(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    codigo = db.Column(db.String(50), nullable=False)
-    qtade_maxima_armazenada = db.Column(db.String(50), nullable=True)
-    nome_do_produto = db.Column(db.String(200), nullable=False)
-    fornecedor = db.Column(db.String(200), nullable=True)
-    estado_fisico = db.Column(db.String(50), nullable=True)
-    local_de_armazenamento = db.Column(db.String(100), nullable=True)
-    substancia1 = db.Column(db.String(200), nullable=True)
-    nCas1 = db.Column(db.String(50), nullable=True)
-    concentracao1 = db.Column(db.String(50), nullable=True)
-    substancia2 = db.Column(db.String(200), nullable=True)
-    nCas2 = db.Column(db.String(50), nullable=True)
-    concentracao2 = db.Column(db.String(50), nullable=True)
-    substancia3 = db.Column(db.String(200), nullable=True)
-    nCas3 = db.Column(db.String(50), nullable=True)
-    concentracao3 = db.Column(db.String(50), nullable=True)
-    perigos_fisicos = db.Column(db.Text, nullable=True)
-    perigos_saude = db.Column(db.Text, nullable=True)
-    perigos_meio_ambiente = db.Column(db.Text, nullable=True)
-    palavra_de_perigo = db.Column(db.String(50), nullable=True)
-    categoria = db.Column(db.String(50), nullable=True)
+    @classmethod
+    def set_collection(cls, collection_instance: Collection):
+        """
+        Define a instância da coleção MongoDB para a classe User.
+        Esta função é chamada uma vez durante a inicialização da aplicação.
+        """
+        cls._collection = collection_instance
+
+    @classmethod
+    def collection(cls) -> Collection:
+        """
+        Retorna a instância da coleção MongoDB para a classe User.
+        Levanta um erro se a coleção não tiver sido definida.
+        """
+        if cls._collection is None:
+            raise RuntimeError("MongoDB collection for User is not set. Call User.set_collection() during app initialization.")
+        return cls._collection
+
+    def to_dict(self):
+        """
+        Converte o objeto User em um dicionário para inserção/atualização no MongoDB.
+        Inclui '_id' apenas se não for None.
+        """
+        data = {
+            "username": self.username,
+            "password_hash": self.password_hash,
+            "role": self.role
+        }
+        # Adiciona _id ao dicionário APENAS se ele não for None
+        # Isso permite que o MongoDB gere um ObjectId para novas inserções
+        if self._id is not None:
+            data["_id"] = self._id
+        return data
+
+    @staticmethod
+    def from_dict(data):
+        """Cria um objeto User a partir de um dicionário (geralmente do MongoDB)."""
+        return User(
+            _id=data.get('_id'),
+            username=data.get('username'),
+            password_hash=data.get('password_hash'),
+            role=data.get('role')
+        )
+
+class Product:
+    _collection: Collection = None
+
+    def __init__(self, codigo, qtade_maxima_armazenada, nome_do_produto, fornecedor, estado_fisico,
+                 local_de_armazenamento, substancia1, nCas1, concentracao1, substancia2, nCas2,
+                 concentracao2, substancia3, nCas3, concentracao3, perigos_fisicos, perigos_saude,
+                 perigos_meio_ambiente, palavra_de_perigo, categoria, status, created_by_user_id, _id=None):
+        self._id = _id
+        self.codigo = codigo
+        self.qtade_maxima_armazenada = qtade_maxima_armazenada
+        self.nome_do_produto = nome_do_produto
+        self.fornecedor = fornecedor
+        self.estado_fisico = estado_fisico
+        self.local_de_armazenamento = local_de_armazenamento
+        self.substancia1 = substancia1
+        self.nCas1 = nCas1
+        self.concentracao1 = concentracao1
+        self.substancia2 = substancia2
+        self.nCas2 = nCas2
+        self.concentracao2 = concentracao2
+        self.substancia3 = substancia3
+        self.nCas3 = nCas3
+        self.concentracao3 = concentracao3
+        self.perigos_fisicos = perigos_fisicos
+        self.perigos_saude = perigos_saude
+        self.perigos_meio_ambiente = perigos_meio_ambiente
+        self.palavra_de_perigo = palavra_de_perigo
+        self.categoria = categoria
+        self.status = status
+        self.created_by_user_id = created_by_user_id
+
+    @classmethod
+    def set_collection(cls, collection_instance: Collection):
+        """
+        Define a instância da coleção MongoDB para a classe Product.
+        Esta função é chamada uma vez durante a inicialização da aplicação.
+        """
+        cls._collection = collection_instance
+
+    @classmethod
+    def collection(cls) -> Collection:
+        """
+        Retorna a instância da coleção MongoDB para a classe Product.
+        Levanta um erro se a coleção não tiver sido definida.
+        """
+        if cls._collection is None:
+            raise RuntimeError("MongoDB collection for Product is not set. Call Product.set_collection() during app initialization.")
+        return cls._collection
+
+    def to_dict(self):
+        """
+        Converte o objeto Product em um dicionário para inserção/atualização no MongoDB.
+        Inclui '_id' apenas se não for None.
+        """
+        data = {
+            "codigo": self.codigo,
+            "qtade_maxima_armazenada": self.qtade_maxima_armazenada,
+            "nome_do_produto": self.nome_do_produto,
+            "fornecedor": self.fornecedor,
+            "estado_fisico": self.estado_fisico,
+            "local_de_armazenamento": self.local_de_armazenamento,
+            "substancia1": self.substancia1,
+            "nCas1": self.nCas1,
+            "concentracao1": self.concentracao1,
+            "substancia2": self.substancia2,
+            "nCas2": self.nCas2,
+            "concentracao2": self.concentracao2,
+            "substancia3": self.substancia3,
+            "nCas3": self.nCas3,
+            "concentracao3": self.concentracao3,
+            "perigos_fisicos": self.perigos_fisicos,
+            "perigos_saude": self.perigos_saude,
+            "perigos_meio_ambiente": self.perigos_meio_ambiente,
+            "palavra_de_perigo": self.palavra_de_perigo,
+            "categoria": self.categoria,
+            "status": self.status,
+            "created_by_user_id": self.created_by_user_id
+        }
+        # Adiciona _id ao dicionário APENAS se ele não for None
+        # Isso permite que o MongoDB gere um ObjectId para novas inserções
+        if self._id is not None:
+            data["_id"] = self._id
+        return data
+
+    @staticmethod
+    def from_dict(data):
+        """Cria um objeto Product a partir de um dicionário (geralmente do MongoDB)."""
+        return Product(
+            _id=data.get('_id'),
+            codigo=data.get('codigo'),
+            qtade_maxima_armazenada=data.get('qtade_maxima_armazenada'),
+            nome_do_produto=data.get('nome_do_produto'),
+            fornecedor=data.get('fornecedor'),
+            estado_fisico=data.get('estado_fisico'),
+            local_de_armazenamento=data.get('local_de_armazenamento'),
+            substancia1=data.get('substancia1'),
+            nCas1=data.get('nCas1'),
+            concentracao1=data.get('concentracao1'),
+            substancia2=data.get('substancia2'),
+            nCas2=data.get('nCas2'),
+            concentracao2=data.get('concentracao2'),
+            substancia3=data.get('substancia3'),
+            nCas3=data.get('nCas3'),
+            concentracao3=data.get('concentracao3'),
+            perigos_fisicos=data.get('perigos_fisicos', []),
+            perigos_saude=data.get('perigos_saude', []),
+            perigos_meio_ambiente=data.get('perigos_meio_ambiente', []),
+            palavra_de_perigo=data.get('palavra_de_perigo'), # Correção do typo aqui
+            categoria=data.get('categoria'),
+            status=data.get('status'),
+            created_by_user_id=data.get('created_by_user_id')
+        )

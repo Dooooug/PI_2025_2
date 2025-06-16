@@ -1,152 +1,172 @@
-from flask_cors import CORS  # Importação do Flask-CORS
-from flask import request, jsonify
-from .. import db
-from ..models import User, Product
-from flask import current_app as app
-from flask import session
-from werkzeug.security import generate_password_hash
+# app/routes/user_routes.py
 
-app.secret_key = 204314
+from flask import request, jsonify, Blueprint
+from flask_jwt_extended import create_access_token
+from werkzeug.security import generate_password_hash, check_password_hash
+from bson.objectid import ObjectId
 
-# Adicionar o CORS ao app
-CORS(app)  # Habilita o CORS para todas as rotas
+# Importa a classe User do módulo models
+from app.models import User
+# Importa o decorador role_required e a constante ROLES do módulo utils
+from app.utils import ROLES, role_required
 
-@app.route('/login', methods=['POST'])
-def login():
+# Cria um Blueprint para as rotas de usuário
+user_bp = Blueprint('user', __name__)
+
+# Rota de registro de usuário
+@user_bp.route('/register', methods=['POST'])
+def register():
+    """
+    Registra um novo usuário na aplicação.
+    Requer 'username' e 'password'. 'role' é opcional (padrão: VIEWER).
+    """
     data = request.get_json()
-    app.logger.info(f"Dados recebidos: {data}")
-    email = data.get('email')
-    senha = data.get('senha')
+    username = data.get('username')
+    password = data.get('password')
+    # Define o papel (role) padrão como VIEWER se não for fornecido
+    role = data.get('role', ROLES['VIEWER'])
 
-    # Busca o usuário no banco de dados pelo email
-    user = User.query.filter_by(email=email).first()
+    if not username or not password:
+        return jsonify({"msg": "Nome de usuário e senha são obrigatórios"}), 400
+
+    # Verifica se o nome de usuário já existe
+    if User.collection().find_one({"username": username}):
+        return jsonify({"msg": "Nome de usuário já existe"}), 409
+
+    # Valida se o papel fornecido é um dos papéis permitidos
+    if role not in ROLES.values():
+        return jsonify({"msg": "Role inválido"}), 400
+
+    # Gera o hash da senha antes de armazenar
+    hashed_password = generate_password_hash(password)
+
+    # Cria uma nova instância de User e insere no banco de dados
+    new_user = User(username=username, password_hash=hashed_password, role=role)
+    result = User.collection().insert_one(new_user.to_dict())
+    new_user._id = result.inserted_id # Atribui o ID gerado pelo MongoDB ao objeto
+
+    return jsonify({
+        "msg": "Usuário registrado com sucesso",
+        "user": {"id": str(new_user._id), "username": new_user.username, "role": new_user.role}
+    }), 201
+
+# Rota de login
+@user_bp.route('/login', methods=['POST'])
+def login():
+    """
+    Autentica um usuário e retorna um token de acesso JWT.
+    Requer 'username' e 'password'.
+    """
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+
+    # Busca o usuário no banco de dados pelo nome de usuário
+    user_data = User.collection().find_one({"username": username})
 
     # Verifica se o usuário existe e se a senha está correta
-    if not user or not user.check_password(senha):  # check_password é uma função que valida a senha
-        return jsonify({'message': 'Credenciais inválidas'}), 401
-
-    # Retorna o ID do usuário junto com a mensagem de sucesso
-    return jsonify({'message': 'Login bem-sucedido', 'id': user.id}), 200
-
-
-@app.route('/register', methods=['POST'])
-def register():
-    data = request.get_json()
+    if not user_data or not check_password_hash(user_data['password_hash'], password):
+        return jsonify({"msg": "Nome de usuário ou senha inválidos"}), 401
     
-    # Validação e registro de novo usuário
-    nome = data.get('nome')
-    email = data.get('email')
-    senha = data.get('senha')
+    # Converte o dicionário do MongoDB para um objeto User
+    user = User.from_dict(user_data)
 
-    # Adicionar verificações de validação aqui...
-    if not nome or len(nome) > 150:
-        return jsonify({'message': 'O nome deve ter no máximo 500 caracteres'}), 400
-    
-    if User.query.filter_by(email=email).first():
-        return jsonify({'message': 'Usuário já existe'}), 409
+    # Cria um token de acesso JWT com a identidade do usuário (ID do MongoDB)
+    access_token = create_access_token(identity=str(user._id))
+    return jsonify(access_token=access_token, user={'id': str(user._id), 'username': user.username, 'role': user.role}), 200
 
-    new_user = User(nome=nome, email=email)
-    new_user.set_password(senha)
-    db.session.add(new_user)
-    db.session.commit()
+# --- Rotas CRUD para Usuários (Administrador) ---
 
-    return jsonify({'message': 'Usuário registrado com sucesso'}), 201
+@user_bp.route('/users', methods=['GET'])
+@role_required([ROLES['ADMIN']])
+def get_users():
+    """
+    Retorna uma lista de todos os usuários. Apenas para administradores.
+    """
+    users_cursor = User.collection().find({})
+    users_list = []
+    # Itera sobre os usuários, converte para objeto User e adiciona à lista
+    for user_data in users_cursor:
+        user = User.from_dict(user_data)
+        users_list.append({"id": str(user._id), "username": user.username, "role": user.role})
+    return jsonify(users_list), 200
 
-@app.route('/users/<int:user_id>', methods=['GET'])
+@user_bp.route('/users/<user_id>', methods=['GET'])
+@role_required([ROLES['ADMIN']])
 def get_user(user_id):
+    """
+    Retorna os detalhes de um usuário específico pelo ID. Apenas para administradores.
+    """
     try:
-        # Busca o usuário pelo ID
-        user = User.query.get(user_id)
+        # Tenta converter o ID fornecido para ObjectId
+        user_data = User.collection().find_one({"_id": ObjectId(user_id)})
+    except Exception:
+        return jsonify({"msg": "ID de usuário inválido"}), 400
 
-        # Verifica se o usuário existe
-        if not user:
-            return jsonify({'error': 'Usuário não encontrado.'}), 404
-
-        # Retorna os dados do usuário
-        return jsonify({'Id': user.id, 'Nome': user.nome, 'Email': user.email}), 200
-
-    except Exception as e:
-        print(f"Erro no servidor: {e}")
-        return jsonify({'error': 'Erro interno no servidor'}), 500
+    if not user_data:
+        return jsonify({"msg": "Usuário não encontrado"}), 404
     
-@app.route('/users/<int:user_id>', methods=['PUT'])
+    # Converte o dicionário do MongoDB para um objeto User
+    user = User.from_dict(user_data)
+    return jsonify({"id": str(user._id), "username": user.username, "role": user.role}), 200
+
+@user_bp.route('/users/<user_id>', methods=['PUT'])
+@role_required([ROLES['ADMIN']])
 def update_user(user_id):
+    """
+    Atualiza um usuário existente pelo ID. Apenas para administradores.
+    Permite atualizar 'username', 'password' e 'role'.
+    """
     try:
-        if user_id <= 0:
-            return jsonify({'error': 'ID do usuário inválido'}), 400
+        # Busca o usuário existente para verificar sua existência
+        user_data_from_db = User.collection().find_one({"_id": ObjectId(user_id)})
+    except Exception:
+        return jsonify({"msg": "ID de usuário inválido"}), 400
 
-        data = request.get_json()
-        print(f"Dados recebidos para atualização do usuário {user_id}: {data}")
+    if not user_data_from_db:
+        return jsonify({"msg": "Usuário não encontrado"}), 404
 
-        if not data:
-            return jsonify({'error': 'Dados de entrada são obrigatórios'}), 400
-        if 'email' not in data:
-            return jsonify({'error': 'O campo email é obrigatório'}), 400
-        if 'senha' not in data:
-            return jsonify({'error': 'O campo senha é obrigatório'}), 400
+    data = request.get_json()
+    update_data = {}
 
-        user = User.query.get(user_id)
-        if not user:
-            return jsonify({'error': f'Usuário com ID {user_id} não encontrado'}), 404
+    # Adiciona campos à atualização se estiverem presentes no payload
+    if 'username' in data:
+        update_data['username'] = data['username']
+    if 'role' in data:
+        # Valida o novo papel
+        if data['role'] not in ROLES.values():
+            return jsonify({"msg": "Role inválido"}), 400
+        update_data['role'] = data['role']
+    
+    if 'password' in data:
+        update_data['password_hash'] = generate_password_hash(data['password'])
 
-        print(f"Usuário encontrado: ID={user.id}, Email={user.email}")
-
-        user.email = data['email']
-        user.senha = generate_password_hash(data['senha'])  # Hash da senha
-
-        try:
-            db.session.commit()
-            print(f"Alterações salvas com sucesso para o usuário ID={user.id}")
-
-            return jsonify({
-                'message': 'Usuário atualizado com sucesso',
-                'user': {
-                    'id': user.id,
-                    'email': user.email,
-                    'nome': user.nome if hasattr(user, 'nome') else 'Nome não definido',
-                }
-            }), 200  # Código de status 200 OK
-        except Exception as commit_error:
-            print(f"Erro ao salvar alterações no banco: {commit_error}")
-            db.session.rollback()
-            return jsonify({'error': 'Erro ao salvar no banco de dados'}), 500
-
-    except Exception as e:
-        print(f"Erro no servidor: {e}")
-        return jsonify({'error': 'Erro interno no servidor. Tente novamente.'}), 500
-
-
-@app.route('/current_user', methods=['GET'])
-def get_current_user():
-    try:
-        # Exemplo: obtendo user_id da sessão
-        user_id = session.get('user_id')  # Certifique-se de que `session` esteja configurada
-
-        # Validação: Certifica-se de que o usuário está autenticado
-        if not user_id:
-            return jsonify({'error': 'Usuário não autenticado'}), 401
-
-        # Busca o usuário no banco de dados pelo ID
-        user = User.query.get(user_id)
-        if not user:
-            return jsonify({'error': f'Usuário com ID {user_id} não encontrado'}), 404
-
-        # Retorna as informações do usuário autenticado
+    if update_data:
+        # Realiza a atualização no banco de dados
+        User.collection().update_one({"_id": ObjectId(user_id)}, {"$set": update_data})
+        # Busca o usuário atualizado para retornar os dados mais recentes
+        updated_user_data = User.collection().find_one({"_id": ObjectId(user_id)})
+        updated_user = User.from_dict(updated_user_data)
         return jsonify({
-            'id': user.id,
-            'email': user.email,
-            'nome': user.nome if hasattr(user, 'nome') else 'Nome não definido'
+            "msg": "Usuário atualizado com sucesso",
+            "user": {"id": str(updated_user._id), "username": updated_user.username, "role": updated_user.role}
         }), 200
-    except Exception as e:
-        print(f"Erro ao buscar usuário: {e}")
-        return jsonify({'error': 'Erro interno no servidor'}), 500
-    
-    
-if __name__ == '__main__':
-    app.run(debug=True)
-    
+    else:
+        return jsonify({"msg": "Nenhum dado para atualizar"}), 400
 
-
-
-
+@user_bp.route('/users/<user_id>', methods=['DELETE'])
+@role_required([ROLES['ADMIN']])
+def delete_user(user_id):
+    """
+    Deleta um usuário pelo ID. Apenas para administradores.
+    """
+    try:
+        # Tenta deletar o usuário
+        result = User.collection().delete_one({"_id": ObjectId(user_id)})
+    except Exception:
+        return jsonify({"msg": "ID de usuário inválido"}), 400
+        
+    if result.deleted_count == 0:
+        return jsonify({"msg": "Usuário não encontrado"}), 404
+    return jsonify({"msg": "Usuário deletado com sucesso"}), 200
 

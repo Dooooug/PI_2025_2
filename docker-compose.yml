@@ -1,25 +1,44 @@
+
+
 services:
-  web:
-    build: .
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb_container
     ports:
-      - "5000:5000"
+      - "27017:27017"
     volumes:
-      - .:/app
-    depends_on:
-      - db
+      - mongo_data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      
     networks:
       - app_network
 
-  db:
-    image: postgres:latest
-    environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: 204314
-      POSTGRES_DB: user_db
+  flask_app:
+    build: .
+    container_name: flask_app_container
     ports:
-      - "5432:5432"
+      - "5000:5000"
+    environment:
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_REGION: ${AWS_REGION}
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME}
+      MONGO_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@mongodb:27017/meuappdb?authSource=admin
+      MONGO_DB_NAME: ${MONGO_DB_NAME} # Certifique-se de que este nome corresponde ao da URI
+      MONGO_COLLECTION_NAME: ${MONGO_COLLECTION_NAME} # Exemplo de nome de coleção
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      - mongodb
     networks:
       - app_network
+
+volumes:
+  mongo_data:
 
 networks:
   app_network:
