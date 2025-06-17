@@ -20,6 +20,7 @@ def create_product():
     """
     Cria um novo produto. Apenas para administradores e analistas.
     Administradores podem definir o status; analistas criam com status 'pendente'.
+    Agora aceita 'pdf_url' e 'pdf_s3_key'.
     """
     data = request.get_json()
     
@@ -57,7 +58,9 @@ def create_product():
         palavra_de_perigo=data.get('palavra_de_perigo'),
         categoria=data.get('categoria'),
         status=status,
-        created_by_user_id=current_user_id_str # Armazena o ID do usuário que criou o produto
+        created_by_user_id=current_user_id_str, # Armazena o ID do usuário que criou o produto
+        pdf_url=data.get('pdf_url'), # <-- NOVO: Permite enviar a URL do PDF
+        pdf_s3_key=data.get('pdf_s3_key') # <-- NOVO: Permite enviar a chave S3 do PDF
     )
 
     # Insere o novo produto no banco de dados
@@ -103,11 +106,10 @@ def get_products():
         product_dict = product.to_dict()
         product_dict['id'] = str(product_dict.pop('_id')) # Renomeia '_id' para 'id'
         
-        # Busca o nome de usuário do criador do produto
+        # Busca o nome de usuário do criador para incluir na resposta
         creator_user_data = User.collection().find_one({"_id": ObjectId(product.created_by_user_id)})
         creator_user = User.from_dict(creator_user_data) if creator_user_data else None
         product_dict['created_by'] = creator_user.username if creator_user else None
-        
         products_list.append(product_dict)
 
     return jsonify(products_list), 200
@@ -155,6 +157,7 @@ def update_product(product_id):
     Atualiza um produto existente pelo ID. Apenas para administradores e analistas.
     Analistas podem editar apenas seus próprios produtos pendentes.
     Administradores podem editar qualquer campo, incluindo o status.
+    Agora aceita atualização para 'pdf_url' e 'pdf_s3_key'.
     """
     try:
         product_data_from_db = Product.collection().find_one({"_id": ObjectId(product_id)})
@@ -189,13 +192,25 @@ def update_product(product_id):
         if key in product_to_update.to_dict() and key not in ['_id', 'status', 'created_by_user_id']:
             update_fields[key] = value
 
-    # Administradores podem atualizar o status
-    if current_user.role == ROLES['ADMIN'] and 'status' in data:
-        new_status = data['status']
-        if new_status in ['pendente', 'aprovado', 'rejeitado']:
-            update_fields['status'] = new_status
-        else:
-            return jsonify({"msg": "Status inválido"}), 400
+    # Administradores podem atualizar o status e campos de PDF
+    if current_user.role == ROLES['ADMIN']:
+        if 'status' in data:
+            new_status = data['status']
+            if new_status in ['pendente', 'aprovado', 'rejeitado']:
+                update_fields['status'] = new_status
+            else:
+                return jsonify({"msg": "Status inválido"}), 400
+        # Permite que o ADMIN atualize pdf_url e pdf_s3_key
+        if 'pdf_url' in data:
+            update_fields['pdf_url'] = data['pdf_url']
+        if 'pdf_s3_key' in data:
+            update_fields['pdf_s3_key'] = data['pdf_s3_key']
+    # Analistas só podem atualizar pdf_url e pdf_s3_key se o produto não estiver aprovado
+    elif current_user.role == ROLES['ANALYST'] and product_to_update.status != 'aprovado':
+        if 'pdf_url' in data:
+            update_fields['pdf_url'] = data['pdf_url']
+        if 'pdf_s3_key' in data:
+            update_fields['pdf_s3_key'] = data['pdf_s3_key']
     
     if update_fields:
         Product.collection().update_one({"_id": ObjectId(product_id)}, {"$set": update_fields})
@@ -289,4 +304,3 @@ def search_products():
         products_list.append(product_dict)
 
     return jsonify(products_list), 200
-

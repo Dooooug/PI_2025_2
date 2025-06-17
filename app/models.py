@@ -1,14 +1,13 @@
-# app/models.py
-
 from pymongo.collection import Collection
 from bson.objectid import ObjectId
 
 class User:
     _collection: Collection = None
 
-    def __init__(self, username, password_hash, role, _id=None):
+    def __init__(self, username, email, password_hash, role, _id=None): # Adicionado 'email'
         self._id = _id
         self.username = username
+        self.email = email # Novo atributo
         self.password_hash = password_hash
         self.role = role
 
@@ -37,6 +36,7 @@ class User:
         """
         data = {
             "username": self.username,
+            "email": self.email, # Incluído no dicionário
             "password_hash": self.password_hash,
             "role": self.role
         }
@@ -52,6 +52,7 @@ class User:
         return User(
             _id=data.get('_id'),
             username=data.get('username'),
+            email=data.get('email'), # Incluído na criação do objeto a partir do dicionário
             password_hash=data.get('password_hash'),
             role=data.get('role')
         )
@@ -62,7 +63,8 @@ class Product:
     def __init__(self, codigo, qtade_maxima_armazenada, nome_do_produto, fornecedor, estado_fisico,
                  local_de_armazenamento, substancia1, nCas1, concentracao1, substancia2, nCas2,
                  concentracao2, substancia3, nCas3, concentracao3, perigos_fisicos, perigos_saude,
-                 perigos_meio_ambiente, palavra_de_perigo, categoria, status, created_by_user_id, _id=None):
+                 perigos_meio_ambiente, palavra_de_perigo, categoria, status, created_by_user_id,
+                 pdf_url=None, pdf_s3_key=None, _id=None): # NOVOS CAMPOS AQUI
         self._id = _id
         self.codigo = codigo
         self.qtade_maxima_armazenada = qtade_maxima_armazenada
@@ -86,6 +88,8 @@ class Product:
         self.categoria = categoria
         self.status = status
         self.created_by_user_id = created_by_user_id
+        self.pdf_url = pdf_url # NOVO CAMPO
+        self.pdf_s3_key = pdf_s3_key # NOVO CAMPO
 
     @classmethod
     def set_collection(cls, collection_instance: Collection):
@@ -132,7 +136,9 @@ class Product:
             "palavra_de_perigo": self.palavra_de_perigo,
             "categoria": self.categoria,
             "status": self.status,
-            "created_by_user_id": self.created_by_user_id
+            "created_by_user_id": self.created_by_user_id,
+            "pdf_url": self.pdf_url, # NOVO CAMPO NO to_dict
+            "pdf_s3_key": self.pdf_s3_key # NOVO CAMPO NO to_dict
         }
         # Adiciona _id ao dicionário APENAS se ele não for None
         # Isso permite que o MongoDB gere um ObjectId para novas inserções
@@ -163,8 +169,10 @@ class Product:
             perigos_fisicos=data.get('perigos_fisicos', []),
             perigos_saude=data.get('perigos_saude', []),
             perigos_meio_ambiente=data.get('perigos_meio_ambiente', []),
-            palavra_de_perigo=data.get('palavra_de_perigo'), # Correção do typo aqui
+            palavra_de_perigo=data.get('palavra_de_perigo'),
             categoria=data.get('categoria'),
             status=data.get('status'),
-            created_by_user_id=data.get('created_by_user_id')
+            created_by_user_id=data.get('created_by_user_id'),
+            pdf_url=data.get('pdf_url'), # NOVO CAMPO NO from_dict
+            pdf_s3_key=data.get('pdf_s3_key') # NOVO CAMPO NO from_dict
         )

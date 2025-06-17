@@ -1,7 +1,6 @@
-# app/__init__.py
-
 from flask import Flask
 from flask_jwt_extended import JWTManager
+from flask_cors import CORS
 from pymongo import MongoClient
 import os
 
@@ -11,8 +10,8 @@ from app.models import Product, User
 def create_app():
     app = Flask(__name__)
 
-    # Configurações do Flask
-    ###app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
+    # Configurações do Flask com valores padrão para evitar erros
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
     app.config['MONGO_URI'] = os.environ.get('MONGO_URI')
     app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY')
 
@@ -20,15 +19,22 @@ def create_app():
     jwt = JWTManager(app)
 
     # Conexão com o MongoDB
-    mongo_client = MongoClient(app.config['MONGO_URI'])
-    app.mongo_db = mongo_client.get_default_database() # Ou especifique o nome do banco de dados
+    try:
+        mongo_client = MongoClient(app.config['MONGO_URI'])
+        app.mongo_db = mongo_client.get_database()  # Ajuste para obter corretamente o banco de dados
+        print("Conexão MongoDB estabelecida com sucesso.")
+    except Exception as e:
+        print(f"Erro ao conectar ao MongoDB: {e}")
+        exit(1)  # Saída segura se a conexão falhar
 
     # Define a coleção para as classes de modelo
-    # Isso associa as classes User e Product às suas coleções no MongoDB
     User.set_collection(app.mongo_db['users'])
     Product.set_collection(app.mongo_db['products'])
 
-    # --- Importa e registra os Blueprints ---
+    # Configuração do CORS para permitir requisições do frontend
+    CORS(app, resources={r"/*": {"origins": "http://localhost:3000"}})
+
+    # Importa e registra os Blueprints
     from app.routes.user_routes import user_bp
     from app.routes.product_routes import product_bp
     from app.routes.pdf_routes import pdf_bp
@@ -37,12 +43,9 @@ def create_app():
     app.register_blueprint(product_bp)
     app.register_blueprint(pdf_bp)
 
-    # Rota de home da aplicação (pode ser mantida aqui ou movida para um Blueprint genérico)
+    # Rota inicial
     @app.route('/')
     def home():
         return "Aplicação Flask funcionando"
 
-    
-
     return app
-
