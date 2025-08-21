@@ -1,306 +1,341 @@
 # app/routes/product_routes.py
-
 from flask import request, jsonify, Blueprint
 from flask_jwt_extended import get_jwt_identity
 from bson.objectid import ObjectId
+from bson.errors import InvalidId
+from datetime import datetime
+import re
 
-# Importa as classes Product e User do módulo models
 from app.models import Product, User
-# Importa o decorador role_required e a constante ROLES do módulo utils
 from app.utils import ROLES, role_required
 
-# Cria um Blueprint para as rotas de produto
 product_bp = Blueprint('product', __name__)
 
-# --- Rotas CRUD para Produtos ---
+# ============================================================
+# HELPERS
+# ============================================================
 
+def _serialize_dt(value):
+    if isinstance(value, datetime):
+        try:
+            return value.isoformat()
+        except Exception:
+            return str(value)
+    return value
+
+
+def _serialize_product(doc):
+    if not doc:
+        return {}
+
+    p = dict(doc)
+
+    # ID sempre como string
+    p["id"] = str(p.get("_id"))
+    p.pop("_id", None)
+
+    # Datas
+    if "created_at" in p:
+        p["created_at"] = _serialize_dt(p["created_at"])
+    if "updated_at" in p:
+        p["updated_at"] = _serialize_dt(p["updated_at"])
+
+    # Nome do criador
+    created_by_user_id = p.get("created_by_user_id")
+    if created_by_user_id:
+        try:
+            _oid = created_by_user_id if isinstance(created_by_user_id, ObjectId) else ObjectId(created_by_user_id)
+            user = User.collection().find_one({"_id": _oid})
+            if user:
+                p["created_by"] = user.get("username") or user.get("name") or str(created_by_user_id)
+            else:
+                p["created_by"] = str(created_by_user_id)
+        except Exception:
+            p["created_by"] = str(created_by_user_id)
+
+    return p
+
+
+# ============================================================
+# TEST ROUTE
+# ============================================================
+@product_bp.route('/products/test', methods=['GET'])
+def test_products():
+    return jsonify({"msg": "API de produtos está ativa!"}), 200
+
+
+# ============================================================
+# NEXT PRODUCT CODE
+# ============================================================
+@product_bp.route('/products/next-code', methods=['GET'])
+@role_required([ROLES['ADMIN'], ROLES['ANALYST']])
+def get_next_product_code():
+    try:
+        last_product = Product.collection().find_one(sort=[('_id', -1)])
+        last_code_number = 0
+
+        if last_product and 'codigo' in last_product:
+            match = re.search(r'FDS(\d+)', last_product['codigo'])
+            if match:
+                last_code_number = int(match.group(1))
+
+        new_code_number = last_code_number + 1
+        new_codigo = f"FDS{new_code_number:06d}"
+
+        return jsonify({"next_code": new_codigo}), 200
+
+    except Exception as e:
+        return jsonify({"msg": f"Erro ao gerar o próximo código do produto: {str(e)}"}), 500
+
+
+# ============================================================
+# CREATE PRODUCT
+# ============================================================
 @product_bp.route('/products', methods=['POST'])
 @role_required([ROLES['ADMIN'], ROLES['ANALYST']])
 def create_product():
-    """
-    Cria um novo produto. Apenas para administradores e analistas.
-    Administradores podem definir o status; analistas criam com status 'pendente'.
-    Agora aceita 'pdf_url' e 'pdf_s3_key'.
-    """
+    current_user_id = get_jwt_identity()
+    try:
+        creator_user_id = ObjectId(current_user_id)
+    except (InvalidId, TypeError):
+        creator_user_id = str(current_user_id)
+
     data = request.get_json()
-    
-    if not data or 'codigo' not in data or 'nome_do_produto' not in data:
-        return jsonify({"msg": "Campos 'codigo' e 'nome_do_produto' são obrigatórios"}), 400
+    if not data:
+        return jsonify({"msg": "Dados não enviados"}), 400
 
-    current_user_id_str = get_jwt_identity()
-    current_user_data = User.collection().find_one({"_id": ObjectId(current_user_id_str)})
-    current_user = User.from_dict(current_user_data) # Converte para objeto User
+    required_fields = [
+        'nome_do_produto',
+        'fornecedor',
+        'estado_fisico',
+        'local_de_armazenamento',
+        'empresa'
+    ]
 
-    status = 'pendente'
-    if current_user.role == ROLES['ADMIN']:
-        status = data.get('status', 'pendente') # Administradores podem definir o status
+    if any(field not in data or not data[field] for field in required_fields):
+        return jsonify({
+            "msg": "Campos obrigatórios faltando: nome_do_produto, fornecedor, estado_fisico, local_de_armazenamento e empresa."
+        }), 400
 
-    # Cria uma nova instância de Produto com os dados fornecidos
-    new_product_instance = Product(
-        codigo=data.get('codigo'),
+    try:
+        last_product = Product.collection().find_one(sort=[('_id', -1)])
+        last_code_number = 0
+
+        if last_product and 'codigo' in last_product:
+            match = re.search(r'FDS(\d+)', last_product['codigo'])
+            if match:
+                last_code_number = int(match.group(1))
+
+        new_code_number = last_code_number + 1
+        new_codigo = f"FDS{new_code_number:06d}"
+
+    except Exception as e:
+        return jsonify({"msg": f"Erro ao gerar o código interno do produto: {str(e)}"}), 500
+
+    substancias = []
+    if 'substancias' in data and isinstance(data['substancias'], list):
+        for s in data['substancias']:
+            substancias.append({
+                'nome': s.get('nome', ''),
+                'cas': s.get('cas', ''),
+                'concentracao': s.get('concentracao', ''),
+            })
+
+    new_product = Product(
+        codigo=new_codigo,
         qtade_maxima_armazenada=data.get('qtade_maxima_armazenada'),
         nome_do_produto=data.get('nome_do_produto'),
         fornecedor=data.get('fornecedor'),
         estado_fisico=data.get('estado_fisico'),
         local_de_armazenamento=data.get('local_de_armazenamento'),
-        substancia1=data.get('substancia1'),
-        nCas1=data.get('nCas1'),
-        concentracao1=data.get('concentracao1'),
-        substancia2=data.get('substancia2'),
-        nCas2=data.get('nCas2'),
-        concentracao2=data.get('concentracao2'),
-        substancia3=data.get('substancia3'),
-        nCas3=data.get('nCas3'),
-        concentracao3=data.get('concentracao3'),
-        perigos_fisicos=data.get('perigos_fisicos', []), 
+        substancias=substancias,
+        perigos_fisicos=data.get('perigos_fisicos', []),
         perigos_saude=data.get('perigos_saude', []),
         perigos_meio_ambiente=data.get('perigos_meio_ambiente', []),
         palavra_de_perigo=data.get('palavra_de_perigo'),
         categoria=data.get('categoria'),
-        status=status,
-        created_by_user_id=current_user_id_str, # Armazena o ID do usuário que criou o produto
-        pdf_url=data.get('pdf_url'), # <-- NOVO: Permite enviar a URL do PDF
-        pdf_s3_key=data.get('pdf_s3_key') # <-- NOVO: Permite enviar a chave S3 do PDF
+        status=data.get('status') or 'pendente',
+        created_by_user_id=creator_user_id,
+        pdf_url=data.get('pdf_url'),
+        pdf_s3_key=data.get('pdf_s3_key'),
+        empresa=data.get('empresa'),
     )
 
-    # Insere o novo produto no banco de dados
-    result = Product.collection().insert_one(new_product_instance.to_dict())
-    new_product_instance._id = result.inserted_id # Atribui o ID gerado pelo MongoDB
-
-    response_data = new_product_instance.to_dict()
-    response_data['id'] = str(response_data.pop('_id')) # Renomeia '_id' para 'id' para a resposta
-    return jsonify({"msg": "Produto criado com sucesso", "product": response_data}), 201
-
-@product_bp.route('/products', methods=['GET'])
-@role_required([ROLES['ADMIN'], ROLES['ANALYST'], ROLES['VIEWER']])
-def get_products():
-    """
-    Retorna uma lista de produtos com base no papel do usuário logado.
-    VIEWERs veem apenas produtos 'aprovados'.
-    ANALYSTs veem 'aprovados' e os que eles criaram.
-    ADMINs veem todos os produtos.
-    """
-    current_user_id_str = get_jwt_identity()
-    current_user_data = User.collection().find_one({"_id": ObjectId(current_user_id_str)})
-    current_user = User.from_dict(current_user_data) # Converte para objeto User
-
-    query_filter = {}
-
-    # Define o filtro de consulta com base no papel do usuário
-    if current_user.role == ROLES['VIEWER']:
-        query_filter = {"status": "aprovado"}
-    elif current_user.role == ROLES['ANALYST']:
-        query_filter = {
-            "$or": [
-                {"status": "aprovado"},
-                {"created_by_user_id": current_user_id_str}
-            ]
-        }
-    
-    products_cursor = Product.collection().find(query_filter)
-    
-    products_list = []
-    for p_data in products_cursor:
-        product = Product.from_dict(p_data) # Converte para objeto Product
-        
-        product_dict = product.to_dict()
-        product_dict['id'] = str(product_dict.pop('_id')) # Renomeia '_id' para 'id'
-        
-        # Busca o nome de usuário do criador para incluir na resposta
-        creator_user_data = User.collection().find_one({"_id": ObjectId(product.created_by_user_id)})
-        creator_user = User.from_dict(creator_user_data) if creator_user_data else None
-        product_dict['created_by'] = creator_user.username if creator_user else None
-        products_list.append(product_dict)
-
-    return jsonify(products_list), 200
-
-@product_bp.route('/products/<product_id>', methods=['GET'])
-@role_required([ROLES['ADMIN'], ROLES['ANALYST'], ROLES['VIEWER']])
-def get_product(product_id):
-    """
-    Retorna os detalhes de um produto específico pelo ID.
-    O acesso é restrito com base no papel do usuário e no status do produto.
-    """
     try:
-        product_data = Product.collection().find_one({"_id": ObjectId(product_id)})
+        product_dict = new_product.to_dict()
+        product_dict["created_at"] = datetime.utcnow()
+        product_dict["updated_at"] = datetime.utcnow()
+
+        result = Product.collection().insert_one(product_dict)
+        new_product._id = result.inserted_id
+
+        product_dict["_id"] = new_product._id
+        serialized = _serialize_product(product_dict)
+
+        return jsonify({
+            "msg": f"{new_codigo} e {data.get('nome_do_produto')} - produto cadastrado com sucesso",
+            "product": serialized,
+            "id": serialized["id"]
+        }), 201
+
+    except Exception as e:
+        return jsonify({"msg": f"Erro ao criar o produto: {str(e)}"}), 500
+
+
+# ============================================================
+# LIST PRODUCTS
+# ============================================================
+@product_bp.route('/products', methods=['GET'])
+@role_required([ROLES['ADMIN'], ROLES['ANALYST']])
+def list_products():
+    try:
+        status_filter = request.args.get('status')
+        query = {}
+        if status_filter:
+            query['status'] = status_filter
+
+        cursor = Product.collection().find(query).sort([('_id', -1)])
+        products = [_serialize_product(doc) for doc in cursor]
+
+        return jsonify(products), 200
+
+    except Exception as e:
+        return jsonify({"msg": f"Erro ao listar produtos: {str(e)}"}), 500
+
+
+# ============================================================
+# GET PRODUCT BY ID
+# ============================================================
+@product_bp.route('/products/<product_id>', methods=['GET'])
+@role_required([ROLES['ADMIN'], ROLES['ANALYST']])
+def get_product(product_id):
+    try:
+        _id = ObjectId(product_id)
     except Exception:
-        return jsonify({"msg": "ID de produto inválido"}), 400
+        return jsonify({"msg": "ID do produto inválido."}), 400
 
-    if not product_data:
-        return jsonify({"msg": "Produto não encontrado"}), 404
+    try:
+        doc = Product.collection().find_one({"_id": _id})
+        if not doc:
+            return jsonify({"msg": "Produto não encontrado."}), 404
 
-    product = Product.from_dict(product_data) # Converte para objeto Product
+        return jsonify(_serialize_product(doc)), 200
 
-    current_user_id_str = get_jwt_identity()
-    current_user_data = User.collection().find_one({"_id": ObjectId(current_user_id_str)})
-    current_user = User.from_dict(current_user_data) # Converte para objeto User
+    except Exception as e:
+        return jsonify({"msg": f"Erro ao buscar produto: {str(e)}"}), 500
 
-    # Lógica de autorização baseada no papel do usuário
-    if current_user.role == ROLES['VIEWER'] and product.status != 'aprovado':
-        return jsonify({"msg": "Acesso negado: Este produto não está aprovado para visualização"}), 403
-    elif current_user.role == ROLES['ANALYST'] and product.status != 'aprovado' and product.created_by_user_id != current_user_id_str:
-        return jsonify({"msg": "Acesso negado: Este produto não está aprovado ou não foi criado por você"}), 403
 
-    response_data = product.to_dict()
-    response_data['id'] = str(response_data.pop('_id'))
-    
-    # Busca o nome de usuário do criador do produto
-    creator_user_data = User.collection().find_one({"_id": ObjectId(product.created_by_user_id)})
-    creator_user = User.from_dict(creator_user_data) if creator_user_data else None
-    response_data['created_by'] = creator_user.username if creator_user else None
-    return jsonify(response_data), 200
-
+# ============================================================
+# UPDATE PRODUCT
+# ============================================================
 @product_bp.route('/products/<product_id>', methods=['PUT'])
 @role_required([ROLES['ADMIN'], ROLES['ANALYST']])
 def update_product(product_id):
-    """
-    Atualiza um produto existente pelo ID. Apenas para administradores e analistas.
-    Analistas podem editar apenas seus próprios produtos pendentes.
-    Administradores podem editar qualquer campo, incluindo o status.
-    Agora aceita atualização para 'pdf_url' e 'pdf_s3_key'.
-    """
+    current_user_id = get_jwt_identity()
     try:
-        product_data_from_db = Product.collection().find_one({"_id": ObjectId(product_id)})
+        _id = ObjectId(product_id)
+        current_oid = ObjectId(current_user_id)
     except Exception:
-        return jsonify({"msg": "ID de produto inválido"}), 400
+        return jsonify({"msg": "ID inválido."}), 400
 
-    if not product_data_from_db:
-        return jsonify({"msg": "Produto não encontrado"}), 404
-    
-    product_to_update = Product.from_dict(product_data_from_db) # Converte para objeto Product
+    data = request.get_json() or {}
 
-    current_user_id_str = get_jwt_identity()
-    current_user_data = User.collection().find_one({"_id": ObjectId(current_user_id_str)})
-    current_user = User.from_dict(current_user_data) # Converte para objeto User
+    try:
+        doc = Product.collection().find_one({"_id": _id})
+        if not doc:
+            return jsonify({"msg": "Produto não encontrado."}), 404
 
-    data = request.get_json()
-    update_fields = {}
+        user_role = User.collection().find_one({"_id": current_oid}, {"role": 1})
+        role_value = user_role.get("role") if user_role else None
 
-    # Lógica de autorização e campos permitidos para atualização para analistas
-    if current_user.role == ROLES['ANALYST']:
-        if product_to_update.created_by_user_id != current_user_id_str:
-            return jsonify({"msg": "Acesso negado: Você só pode editar seus próprios produtos"}), 403
-        if product_to_update.status == 'aprovado':
-            return jsonify({"msg": "Acesso negado: Produtos aprovados não podem ser editados por Analistas"}), 403
-        
-        if 'status' in data: # Analistas não podem alterar o status
-            return jsonify({"msg": "Analistas não podem alterar o status do produto"}), 403
+        if role_value == ROLES['ANALYST']:
+            if str(doc.get("created_by_user_id")) != str(current_oid):
+                return jsonify({"msg": "Você não tem permissão para editar este produto."}), 403
+            if doc.get("status") == "aprovado":
+                return jsonify({"msg": "Produto aprovado não pode ser editado por analista."}), 403
 
-    # Copia os campos do payload para update_fields, excluindo _id, status e created_by_user_id
-    # A atualização do status é tratada separadamente para administradores
-    for key, value in data.items():
-        if key in product_to_update.to_dict() and key not in ['_id', 'status', 'created_by_user_id']:
-            update_fields[key] = value
+        fields_allowed = {
+            'qtade_maxima_armazenada',
+            'nome_do_produto',
+            'fornecedor',
+            'estado_fisico',
+            'local_de_armazenamento',
+            'substancias',
+            'perigos_fisicos',
+            'perigos_saude',
+            'perigos_meio_ambiente',
+            'palavra_de_perigo',
+            'categoria',
+            'pdf_url',
+            'pdf_s3_key',
+            'empresa'
+        }
 
-    # Administradores podem atualizar o status e campos de PDF
-    if current_user.role == ROLES['ADMIN']:
-        if 'status' in data:
-            new_status = data['status']
-            if new_status in ['pendente', 'aprovado', 'rejeitado']:
-                update_fields['status'] = new_status
-            else:
-                return jsonify({"msg": "Status inválido"}), 400
-        # Permite que o ADMIN atualize pdf_url e pdf_s3_key
-        if 'pdf_url' in data:
-            update_fields['pdf_url'] = data['pdf_url']
-        if 'pdf_s3_key' in data:
-            update_fields['pdf_s3_key'] = data['pdf_s3_key']
-    # Analistas só podem atualizar pdf_url e pdf_s3_key se o produto não estiver aprovado
-    elif current_user.role == ROLES['ANALYST'] and product_to_update.status != 'aprovado':
-        if 'pdf_url' in data:
-            update_fields['pdf_url'] = data['pdf_url']
-        if 'pdf_s3_key' in data:
-            update_fields['pdf_s3_key'] = data['pdf_s3_key']
-    
-    if update_fields:
-        Product.collection().update_one({"_id": ObjectId(product_id)}, {"$set": update_fields})
-        updated_product_data = Product.collection().find_one({"_id": ObjectId(product_id)})
-        updated_product_instance = Product.from_dict(updated_product_data)
-        
-        response_data = updated_product_instance.to_dict()
-        response_data['id'] = str(response_data.pop('_id'))
-        
-        # Busca o nome de usuário do criador para incluir na resposta
-        creator_user_data = User.collection().find_one({"_id": ObjectId(updated_product_instance.created_by_user_id)})
-        creator_user = User.from_dict(creator_user_data) if creator_user_data else None
-        response_data['created_by'] = creator_user.username if creator_user else None
-        return jsonify({"msg": "Produto atualizado com sucesso", "product": response_data}), 200
-    else:
-        return jsonify({"msg": "Nenhum dado para atualizar"}), 400
+        update_doc = {k: v for k, v in data.items() if k in fields_allowed}
+        update_doc["updated_at"] = datetime.utcnow()
 
+        Product.collection().update_one({"_id": _id}, {"$set": update_doc})
+
+        updated = Product.collection().find_one({"_id": _id})
+        return jsonify({
+            "msg": "Produto atualizado com sucesso.",
+            "product": _serialize_product(updated)
+        }), 200
+
+    except Exception as e:
+        return jsonify({"msg": f"Erro ao atualizar produto: {str(e)}"}), 500
+
+
+# ============================================================
+# UPDATE STATUS
+# ============================================================
+@product_bp.route('/products/<product_id>/status', methods=['PUT'])
+@role_required([ROLES['ADMIN']])
+def update_product_status(product_id):
+    try:
+        _id = ObjectId(product_id)
+    except Exception:
+        return jsonify({"msg": "ID do produto inválido."}), 400
+
+    data = request.get_json() or {}
+    status = (data.get("status") or "").strip().lower()
+
+    if status not in {"aprovado", "rejeitado", "pendente"}:
+        return jsonify({"msg": "Status inválido. Use: aprovado, rejeitado ou pendente."}), 400
+
+    try:
+        result = Product.collection().update_one(
+            {"_id": _id},
+            {"$set": {"status": status, "updated_at": datetime.utcnow()}}
+        )
+        if result.matched_count == 0:
+            return jsonify({"msg": "Produto não encontrado."}), 404
+
+        updated = Product.collection().find_one({"_id": _id})
+        return jsonify({
+            "msg": f"Status atualizado para '{status}' com sucesso.",
+            "product": _serialize_product(updated)
+        }), 200
+
+    except Exception as e:
+        return jsonify({"msg": f"Erro ao atualizar status do produto: {str(e)}"}), 500
+
+
+# ============================================================
+# DELETE PRODUCT
+# ============================================================
 @product_bp.route('/products/<product_id>', methods=['DELETE'])
 @role_required([ROLES['ADMIN']])
 def delete_product(product_id):
-    """
-    Deleta um produto pelo ID. Apenas para administradores.
-    """
     try:
-        result = Product.collection().delete_one({"_id": ObjectId(product_id)})
+        _id = ObjectId(product_id)
     except Exception:
-        return jsonify({"msg": "ID de produto inválido"}), 400
+        return jsonify({"msg": "ID do produto inválido."}), 400
 
-    if result.deleted_count == 0:
-        return jsonify({"msg": "Produto não encontrado"}), 404
-    return jsonify({"msg": "Produto deletado com sucesso"}), 200
-
-@product_bp.route('/products/search', methods=['GET'])
-@role_required([ROLES['ADMIN'], ROLES['ANALYST'], ROLES['VIEWER']])
-def search_products():
-    """
-    Pesquisa produtos com base em um critério (nome, código, ID, substância, categoria, fornecedor).
-    O acesso aos resultados é restrito com base no papel do usuário.
-    """
-    query_param = request.args.get('q', '').strip()
-    search_by = request.args.get('by', 'nome_do_produto')
-
-    current_user_id_str = get_jwt_identity()
-    current_user_data = User.collection().find_one({"_id": ObjectId(current_user_id_str)})
-    current_user = User.from_dict(current_user_data) # Converte para objeto User
-
-    query_filter = {}
-
-    # Define o filtro inicial baseado no papel do usuário
-    if current_user.role == ROLES['VIEWER']:
-        query_filter["status"] = "aprovado"
-    elif current_user.role == ROLES['ANALYST']:
-        query_filter["$or"] = [
-            {"status": "aprovado"},
-            {"created_by_user_id": current_user_id_str}
-        ]
-
-    if query_param:
-        # Adiciona o filtro de pesquisa ao query_filter
-        if search_by == 'nome_do_produto':
-            query_filter['nome_do_produto'] = {'$regex': query_param, '$options': 'i'}
-        elif search_by == 'codigo':
-            query_filter['codigo'] = {'$regex': query_param, '$options': 'i'}
-        elif search_by == 'id':
-            try:
-                query_filter['_id'] = ObjectId(query_param)
-            except Exception:
-                return jsonify({"msg": "ID inválido"}), 400
-        elif search_by in ['substancia1', 'substancia2', 'substancia3']:
-            # Se a pesquisa é por uma substância específica
-            query_filter[search_by] = {'$regex': query_param, '$options': 'i'}
-        elif search_by == 'categoria':
-            query_filter['categoria'] = {'$regex': query_param, '$options': 'i'}
-        elif search_by == 'fornecedor':
-            query_filter['fornecedor'] = {'$regex': query_param, '$options': 'i'}
-        else:
-            return jsonify({"msg": "Campo de pesquisa inválido. Use 'nome_do_produto', 'codigo', 'id', 'substancia1', 'substancia2', 'substancia3', 'categoria' ou 'fornecedor'"}), 400
-    
-    products_cursor = Product.collection().find(query_filter)
-    
-    products_list = []
-    for p_data in products_cursor:
-        product = Product.from_dict(p_data)
-        product_dict = product.to_dict()
-        product_dict['id'] = str(product_dict.pop('_id'))
-        
-        # Busca o nome de usuário do criador para incluir na resposta
-        creator_user_data = User.collection().find_one({"_id": ObjectId(product.created_by_user_id)})
-        creator_user = User.from_dict(creator_user_data) if creator_user_data else None
-        product_dict['created_by'] = creator_user.username if creator_user else None
-        products_list.append(product_dict)
-
-    return jsonify(products_list), 200
+    try:
+        result = Product.collection().delete_one({"_id": _id})
+        if result.deleted_count == 0:
+            return jsonify({"msg": "Produto não encontrado."}), 404
+        return jsonify({"msg": "Produto excluído com sucesso."}), 200
+    except Exception as e:
+        return jsonify({"msg": f"Erro ao excluir produto: {str(e)}"}), 500

@@ -18,23 +18,36 @@ user_bp = Blueprint('user', __name__)
 def register():
     """
     Registra um novo usuário na aplicação.
-    Requer 'username', 'email' e 'senha'. 'role' é opcional (padrão: VIEWER).
+    Requer 'nome_do_usuario', 'email' e 'senha'. 'nivel' é opcional (padrão: VIEWER).
+    Aceita campos adicionais como cpf, empresa, setor, data_de_nascimento, planta.
     """
     data = request.get_json()
-    username = data.get('username')
-    email = data.get('email') # NOVO: Captura o email
-    senha = data.get('senha') # CORRIGIDO: usa 'senha' conforme o frontend
-    # Define o papel (role) padrão como VIEWER se não for fornecido
-    role = data.get('role', ROLES['VIEWER'])
 
-    if not username or not email or not senha: # NOVO: Valida o email também
+    # Extrai os campos obrigatórios do JSON
+    nome_do_usuario = data.get('nome_do_usuario') # ATUALIZADO: Usando 'nome_do_usuario'
+    email = data.get('email')
+    senha = data.get('senha')
+
+    # Extrai o nível (role) do JSON. Se não for fornecido, usa VIEWER como padrão.
+    # Mantém a lógica de role conforme solicitado, mas extrai da chave 'nivel'
+    role = data.get('nivel', ROLES['VIEWER']) 
+
+    # Extrai os campos adicionais do JSON
+    cpf = data.get('cpf')
+    empresa = data.get('empresa')
+    setor = data.get('setor')
+    data_de_nascimento = data.get('data_de_nascimento')
+    planta = data.get('planta')
+
+    # Validação dos campos obrigatórios
+    if not nome_do_usuario or not email or not senha: # ATUALIZADO: Validando 'nome_do_usuario'
         return jsonify({"msg": "Nome de usuário, email e senha são obrigatórios"}), 400
 
     # Verifica se o nome de usuário já existe
-    if User.collection().find_one({"username": username}):
+    if User.collection().find_one({"nome_do_usuario": nome_do_usuario}): # ATUALIZADO: Busca por 'nome_do_usuario'
         return jsonify({"msg": "Nome de usuário já existe"}), 409
     
-    # NOVO: Verifica se o email já existe
+    # Verifica se o email já existe
     if User.collection().find_one({"email": email}):
         return jsonify({"msg": "Email já está em uso"}), 409
 
@@ -43,19 +56,40 @@ def register():
         return jsonify({"msg": "Role inválido"}), 400
 
     # Gera o hash da senha antes de armazenar
-    hashed_password = generate_password_hash(senha) # Usa 'senha' para o hash
+    hashed_password = generate_password_hash(senha)
 
-    # Cria uma nova instância de User e insere no banco de dados
-    new_user = User(username=username, email=email, password_hash=hashed_password, role=role) # NOVO: Passa o email
+    # Cria uma nova instância de User e insere no banco de dados com todos os campos
+    new_user = User(
+        username=nome_do_usuario, # Mapeia 'nome_do_usuario' do frontend para 'username' no modelo
+        email=email,
+        password_hash=hashed_password,
+        role=role,
+        cpf=cpf, # NOVO: Adiciona o campo cpf
+        empresa=empresa, # NOVO: Adiciona o campo empresa
+        setor=setor, # NOVO: Adiciona o campo setor
+        data_de_nascimento=data_de_nascimento, # NOVO: Adiciona o campo data_de_nascimento
+        planta=planta # NOVO: Adiciona o campo planta
+    )
     result = User.collection().insert_one(new_user.to_dict())
     new_user._id = result.inserted_id # Atribui o ID gerado pelo MongoDB ao objeto
 
+    # Retorna uma resposta de sucesso
     return jsonify({
         "msg": "Usuário registrado com sucesso",
-        "user": {"id": str(new_user._id), "username": new_user.username, "email": new_user.email, "role": new_user.role} # NOVO: Inclui email na resposta
+        "user": {
+            "id": str(new_user._id),
+            "nome_do_usuario": new_user.username, # Retorna como nome_do_usuario para consistência com o frontend
+            "email": new_user.email,
+            "role": new_user.role,
+            "cpf": new_user.cpf, # NOVO: Inclui cpf na resposta
+            "empresa": new_user.empresa, # NOVO: Inclui empresa na resposta
+            "setor": new_user.setor, # NOVO: Inclui setor na resposta
+            "data_de_nascimento": new_user.data_de_nascimento, # NOVO: Inclui data_de_nascimento na resposta
+            "planta": new_user.planta # NOVO: Inclui planta na resposta
+        }
     }), 201
 
-# Rota de login
+# Rota de login (sem alterações necessárias aqui para este problema)
 @user_bp.route('/login', methods=['POST'])
 def login():
     """
@@ -63,17 +97,17 @@ def login():
     Requer 'email' e 'senha'.
     """
     data = request.get_json()
-    email = data.get('email') # CORRIGIDO: Usa 'email' para login
-    senha = data.get('senha') # CORRIGIDO: Usa 'senha' conforme o frontend
+    email = data.get('email')
+    senha = data.get('senha')
 
     if not email or not senha:
         return jsonify({"msg": "Email e senha são obrigatórios"}), 400
 
     # Busca o usuário no banco de dados pelo email
-    user_data = User.collection().find_one({"email": email}) # CORRIGIDO: Busca por email
+    user_data = User.collection().find_one({"email": email})
 
     # Verifica se o usuário existe e se a senha está correta
-    if not user_data or not check_password_hash(user_data['password_hash'], senha): # Usa 'senha' para checar hash
+    if not user_data or not check_password_hash(user_data['password_hash'], senha):
         return jsonify({"msg": "Email ou senha inválidos"}), 401
     
     # Converte o dicionário do MongoDB para um objeto User
@@ -81,42 +115,37 @@ def login():
 
     # Cria um token de acesso JWT com a identidade do usuário (ID do MongoDB)
     access_token = create_access_token(identity=str(user._id))
-    return jsonify(access_token=access_token, user={'id': str(user._id), 'username': user.username, 'email': user.email, 'role': user.role}), 200 # Inclui email na resposta
+    return jsonify(access_token=access_token, user={'id': str(user._id), 'username': user.username, 'email': user.email, 'role': user.role}), 200
 
 # --- Rotas CRUD para Usuários (Administrador) ---
 
+
+# Get User by ID (sem alterações necessárias aqui para este problema)
 @user_bp.route('/users', methods=['GET'])
 @role_required([ROLES['ADMIN']])
 def get_users():
-    """
-    Retorna uma lista de todos os usuários. Apenas para administradores.
-    Inclui o email dos usuários.
-    """
     users_cursor = User.collection().find({})
     users_list = []
     for user_data in users_cursor:
         user = User.from_dict(user_data)
-        users_list.append({"id": str(user._id), "username": user.username, "email": user.email, "role": user.role}) # NOVO: Inclui email
+        users_list.append({
+            "id": str(user._id),
+            "username": user.username,
+            "email": user.email,
+            "role": user.role,
+            "cpf": user.cpf, # <--- Certifique-se que esses campos estão aqui
+            "empresa": user.empresa,
+            "setor": user.setor,
+            "data_de_nascimento": user.data_de_nascimento,
+            "planta": user.planta,
+            # Adicione 'created_at' e 'last_access' se seu modelo e rota de login/registro os tiverem
+            # "created_at": user.created_at.isoformat() if user.created_at else None,
+            # "last_access": user.last_access.isoformat() if user.last_access else None,
+        })
     return jsonify(users_list), 200
 
-@user_bp.route('/users/<user_id>', methods=['GET'])
-@role_required([ROLES['ADMIN']])
-def get_user(user_id):
-    """
-    Retorna os detalhes de um usuário específico pelo ID. Apenas para administradores.
-    Inclui o email do usuário.
-    """
-    try:
-        user_data = User.collection().find_one({"_id": ObjectId(user_id)})
-    except Exception:
-        return jsonify({"msg": "ID de usuário inválido"}), 400
-
-    if not user_data:
-        return jsonify({"msg": "Usuário não encontrado"}), 404
-    
-    user = User.from_dict(user_data)
-    return jsonify({"id": str(user._id), "username": user.username, "email": user.email, "role": user.role}), 200 # NOVO: Inclui email
-
+# Update User (sem alterações necessárias aqui para este problema, mas se 'planta' e outros campos
+# também pudessem ser atualizados, eles precisariam ser adicionados aqui)
 @user_bp.route('/users/<user_id>', methods=['PUT'])
 @role_required([ROLES['ADMIN']])
 def update_user(user_id):
@@ -135,35 +164,65 @@ def update_user(user_id):
     data = request.get_json()
     update_data = {}
 
-    if 'username' in data:
-        update_data['username'] = data['username']
+    # ATUALIZADO: Mapeia 'nome_do_usuario' do frontend para 'username' no backend
+    if 'nome_do_usuario' in data:
+        update_data['username'] = data['nome_do_usuario']
     
-    if 'email' in data: # NOVO: Permite atualizar o email
+    if 'email' in data:
         # Opcional: Adicionar validação para email duplicado ao atualizar, excluindo o próprio usuário
         existing_user_with_email = User.collection().find_one({"email": data['email'], "_id": {"$ne": ObjectId(user_id)}})
         if existing_user_with_email:
             return jsonify({"msg": "Email já está em uso por outro usuário"}), 409
         update_data['email'] = data['email']
     
-    if 'role' in data:
-        if data['role'] not in ROLES.values():
+    # ATUALIZADO: Mapeia 'nivel' do frontend para 'role' no backend
+    if 'nivel' in data:
+        if data['nivel'] not in ROLES.values():
             return jsonify({"msg": "Role inválido"}), 400
-        update_data['role'] = data['role']
+        update_data['role'] = data['nivel'] # Usa 'nivel' do frontend
     
-    if 'senha' in data: # CORRIGIDO: Usa 'senha' para atualização de senha
+    if 'senha' in data:
         update_data['password_hash'] = generate_password_hash(data['senha'])
+
+    # NOVO: Adiciona campos adicionais para atualização, se presentes na requisição
+    if 'cpf' in data:
+        update_data['cpf'] = data['cpf']
+    if 'empresa' in data:
+        update_data['empresa'] = data['empresa']
+    if 'setor' in data:
+        update_data['setor'] = data['setor']
+    if 'data_de_nascimento' in data:
+        update_data['data_de_nascimento'] = data['data_de_nascimento']
+    if 'planta' in data:
+        update_data['planta'] = data['planta']
+
 
     if update_data:
         User.collection().update_one({"_id": ObjectId(user_id)}, {"$set": update_data})
         updated_user_data = User.collection().find_one({"_id": ObjectId(user_id)})
         updated_user = User.from_dict(updated_user_data)
+        
+        # Constrói a resposta com os dados atualizados, incluindo os novos campos
+        response_user_data = {
+            "id": str(updated_user._id),
+            "nome_do_usuario": updated_user.username, 
+            "email": updated_user.email,
+            "role": updated_user.role,
+            "cpf": updated_user.cpf, # Inclui cpf
+            "empresa": updated_user.empresa, # Inclui empresa
+            "setor": updated_user.setor, # Inclui setor
+            "data_de_nascimento": updated_user.data_de_nascimento, # Inclui data_de_nascimento
+            "planta": updated_user.planta # Inclui planta
+        }
+
         return jsonify({
             "msg": "Usuário atualizado com sucesso",
-            "user": {"id": str(updated_user._id), "username": updated_user.username, "email": updated_user.email, "role": updated_user.role} # NOVO: Inclui email
+            "user": response_user_data
         }), 200
     else:
         return jsonify({"msg": "Nenhum dado para atualizar"}), 400
 
+# Delete User (sem alterações necessárias aqui para este problema)
 @user_bp.route('/users/<user_id>', methods=['DELETE'])
 @role_required([ROLES['ADMIN']])
 def delete_user(user_id):

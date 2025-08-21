@@ -1,171 +1,130 @@
-from pymongo.collection import Collection
+from datetime import datetime
 from bson.objectid import ObjectId
 
 class User:
-    _collection: Collection = None
+    collection_name = 'users'
 
-    def __init__(self, username, email, password_hash, role, _id=None): # Adicionado 'email'
-        self._id = _id
+    def __init__(self, username, email, password_hash, role,
+                 cpf=None, empresa=None, setor=None, data_de_nascimento=None, planta=None,
+                 _id=None):
         self.username = username
-        self.email = email # Novo atributo
+        self.email = email
         self.password_hash = password_hash
         self.role = role
-
-    @classmethod
-    def set_collection(cls, collection_instance: Collection):
-        """
-        Define a instância da coleção MongoDB para a classe User.
-        Esta função é chamada uma vez durante a inicialização da aplicação.
-        """
-        cls._collection = collection_instance
-
-    @classmethod
-    def collection(cls) -> Collection:
-        """
-        Retorna a instância da coleção MongoDB para a classe User.
-        Levanta um erro se a coleção não tiver sido definida.
-        """
-        if cls._collection is None:
-            raise RuntimeError("MongoDB collection for User is not set. Call User.set_collection() during app initialization.")
-        return cls._collection
+        self.cpf = cpf
+        self.empresa = empresa
+        self.setor = setor
+        self.data_de_nascimento = data_de_nascimento
+        self.planta = planta
+        self._id = _id
 
     def to_dict(self):
-        """
-        Converte o objeto User em um dicionário para inserção/atualização no MongoDB.
-        Inclui '_id' apenas se não for None.
-        """
-        data = {
+        user_dict = {
             "username": self.username,
-            "email": self.email, # Incluído no dicionário
+            "email": self.email,
             "password_hash": self.password_hash,
-            "role": self.role
+            "role": self.role,
+            "cpf": self.cpf,
+            "empresa": self.empresa,
+            "setor": self.setor,
+            "data_de_nascimento": self.data_de_nascimento,
+            "planta": self.planta
         }
-        # Adiciona _id ao dicionário APENAS se ele não for None
-        # Isso permite que o MongoDB gere um ObjectId para novas inserções
-        if self._id is not None:
-            data["_id"] = self._id
-        return data
+        if self._id:
+            user_dict["_id"] = str(self._id)   # 👈 Convertendo para string
+        return user_dict
 
-    @staticmethod
-    def from_dict(data):
-        """Cria um objeto User a partir de um dicionário (geralmente do MongoDB)."""
-        return User(
-            _id=data.get('_id'),
+    @classmethod
+    def from_dict(cls, data):
+        return cls(
             username=data.get('username'),
-            email=data.get('email'), # Incluído na criação do objeto a partir do dicionário
+            email=data.get('email'),
             password_hash=data.get('password_hash'),
-            role=data.get('role')
+            role=data.get('role'),
+            cpf=data.get('cpf'),
+            empresa=data.get('empresa'),
+            setor=data.get('setor'),
+            data_de_nascimento=data.get('data_de_nascimento'),
+            planta=data.get('planta'),
+            _id=data.get('_id')
         )
 
-class Product:
-    _collection: Collection = None
+    @classmethod
+    def collection(cls):
+        from . import db
+        return db[cls.collection_name]
 
-    def __init__(self, codigo, qtade_maxima_armazenada, nome_do_produto, fornecedor, estado_fisico,
-                 local_de_armazenamento, substancia1, nCas1, concentracao1, substancia2, nCas2,
-                 concentracao2, substancia3, nCas3, concentracao3, perigos_fisicos, perigos_saude,
-                 perigos_meio_ambiente, palavra_de_perigo, categoria, status, created_by_user_id,
-                 pdf_url=None, pdf_s3_key=None, _id=None): # NOVOS CAMPOS AQUI
-        self._id = _id
+
+class Product:
+    collection_name = 'products'
+
+    def __init__(self, codigo, qtade_maxima_armazenada, nome_do_produto, fornecedor,
+                 estado_fisico, local_de_armazenamento, substancias,
+                 palavra_de_perigo, categoria, status, created_by_user_id,
+                 perigos_fisicos=None, perigos_saude=None, perigos_meio_ambiente=None,
+                 pdf_url=None, pdf_s3_key=None, empresa=None, _id=None, created_at=None):
         self.codigo = codigo
         self.qtade_maxima_armazenada = qtade_maxima_armazenada
         self.nome_do_produto = nome_do_produto
         self.fornecedor = fornecedor
         self.estado_fisico = estado_fisico
         self.local_de_armazenamento = local_de_armazenamento
-        self.substancia1 = substancia1
-        self.nCas1 = nCas1
-        self.concentracao1 = concentracao1
-        self.substancia2 = substancia2
-        self.nCas2 = nCas2
-        self.concentracao2 = concentracao2
-        self.substancia3 = substancia3
-        self.nCas3 = nCas3
-        self.concentracao3 = concentracao3
-        self.perigos_fisicos = perigos_fisicos
-        self.perigos_saude = perigos_saude
-        self.perigos_meio_ambiente = perigos_meio_ambiente
+        self.substancias = substancias or []
+        self.perigos_fisicos = perigos_fisicos or []
+        self.perigos_saude = perigos_saude or []
+        self.perigos_meio_ambiente = perigos_meio_ambiente or []
         self.palavra_de_perigo = palavra_de_perigo
         self.categoria = categoria
         self.status = status
         self.created_by_user_id = created_by_user_id
-        self.pdf_url = pdf_url # NOVO CAMPO
-        self.pdf_s3_key = pdf_s3_key # NOVO CAMPO
-
-    @classmethod
-    def set_collection(cls, collection_instance: Collection):
-        """
-        Define a instância da coleção MongoDB para a classe Product.
-        Esta função é chamada uma vez durante a inicialização da aplicação.
-        """
-        cls._collection = collection_instance
-
-    @classmethod
-    def collection(cls) -> Collection:
-        """
-        Retorna a instância da coleção MongoDB para a classe Product.
-        Levanta um erro se a coleção não tiver sido definida.
-        """
-        if cls._collection is None:
-            raise RuntimeError("MongoDB collection for Product is not set. Call Product.set_collection() during app initialization.")
-        return cls._collection
+        self.pdf_url = pdf_url
+        self.pdf_s3_key = pdf_s3_key
+        self.empresa = empresa
+        self._id = _id
+        self.created_at = created_at if created_at is not None else datetime.utcnow()
 
     def to_dict(self):
-        """
-        Converte o objeto Product em um dicionário para inserção/atualização no MongoDB.
-        Inclui '_id' apenas se não for None.
-        """
-        data = {
+        product_dict = {
             "codigo": self.codigo,
             "qtade_maxima_armazenada": self.qtade_maxima_armazenada,
             "nome_do_produto": self.nome_do_produto,
             "fornecedor": self.fornecedor,
             "estado_fisico": self.estado_fisico,
             "local_de_armazenamento": self.local_de_armazenamento,
-            "substancia1": self.substancia1,
-            "nCas1": self.nCas1,
-            "concentracao1": self.concentracao1,
-            "substancia2": self.substancia2,
-            "nCas2": self.nCas2,
-            "concentracao2": self.concentracao2,
-            "substancia3": self.substancia3,
-            "nCas3": self.nCas3,
-            "concentracao3": self.concentracao3,
+            "substancias": self.substancias,
             "perigos_fisicos": self.perigos_fisicos,
             "perigos_saude": self.perigos_saude,
             "perigos_meio_ambiente": self.perigos_meio_ambiente,
             "palavra_de_perigo": self.palavra_de_perigo,
             "categoria": self.categoria,
             "status": self.status,
-            "created_by_user_id": self.created_by_user_id,
-            "pdf_url": self.pdf_url, # NOVO CAMPO NO to_dict
-            "pdf_s3_key": self.pdf_s3_key # NOVO CAMPO NO to_dict
+            "created_by_user_id": str(self.created_by_user_id) if self.created_by_user_id else None,  # 👈 fix
+            "pdf_url": self.pdf_url,
+            "pdf_s3_key": self.pdf_s3_key,
+            "empresa": self.empresa,
+            "created_at": self.created_at.isoformat() if isinstance(self.created_at, datetime) else self.created_at
         }
-        # Adiciona _id ao dicionário APENAS se ele não for None
-        # Isso permite que o MongoDB gere um ObjectId para novas inserções
-        if self._id is not None:
-            data["_id"] = self._id
-        return data
+        if self._id:
+            product_dict["_id"] = str(self._id)  # 👈 fix
+        return product_dict
 
-    @staticmethod
-    def from_dict(data):
-        """Cria um objeto Product a partir de um dicionário (geralmente do MongoDB)."""
-        return Product(
-            _id=data.get('_id'),
+    @classmethod
+    def from_dict(cls, data):
+        created_at_data = data.get("created_at")
+        if isinstance(created_at_data, str):
+            try:
+                created_at_data = datetime.fromisoformat(created_at_data)
+            except ValueError:
+                pass
+
+        return cls(
             codigo=data.get('codigo'),
             qtade_maxima_armazenada=data.get('qtade_maxima_armazenada'),
             nome_do_produto=data.get('nome_do_produto'),
             fornecedor=data.get('fornecedor'),
             estado_fisico=data.get('estado_fisico'),
             local_de_armazenamento=data.get('local_de_armazenamento'),
-            substancia1=data.get('substancia1'),
-            nCas1=data.get('nCas1'),
-            concentracao1=data.get('concentracao1'),
-            substancia2=data.get('substancia2'),
-            nCas2=data.get('nCas2'),
-            concentracao2=data.get('concentracao2'),
-            substancia3=data.get('substancia3'),
-            nCas3=data.get('nCas3'),
-            concentracao3=data.get('concentracao3'),
+            substancias=data.get('substancias', []),
             perigos_fisicos=data.get('perigos_fisicos', []),
             perigos_saude=data.get('perigos_saude', []),
             perigos_meio_ambiente=data.get('perigos_meio_ambiente', []),
@@ -173,6 +132,14 @@ class Product:
             categoria=data.get('categoria'),
             status=data.get('status'),
             created_by_user_id=data.get('created_by_user_id'),
-            pdf_url=data.get('pdf_url'), # NOVO CAMPO NO from_dict
-            pdf_s3_key=data.get('pdf_s3_key') # NOVO CAMPO NO from_dict
+            pdf_url=data.get('pdf_url'),
+            pdf_s3_key=data.get('pdf_s3_key'),
+            empresa=data.get('empresa'),
+            _id=data.get('_id'),
+            created_at=created_at_data
         )
+
+    @classmethod
+    def collection(cls):
+        from . import db
+        return db[cls.collection_name]
