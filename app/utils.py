@@ -13,8 +13,14 @@ ROLES = {
     'ADMIN': 'administrador',
     'ANALYST': 'analista',
     'VIEWER': 'visualizador'
-}
+}#Douglas uma sugestao as "roles" poderiam estar em um arquivo separado tipo config.py ou roles.py 
+# ao inves de usar ADMIN, ANALYST, VIEWER poderia ser por numero tipo 1, 2, 3
+# para facilitar a comparacao e economizar espaco no banco de dados e na transferencia de dados
+#e obrigatorio ? nao, so uma sugestao que nao impacta nada
 
+
+#CODIGO ANTES
+'''
 def role_required(required_roles):
     """
     Decorador para verificar se o usuário autenticado tem um dos papéis necessários.
@@ -39,4 +45,43 @@ def role_required(required_roles):
             return fn(*args, **kwargs)
         return wrapper
     return decorator
+'''
 
+#CODIGO NOVO
+#Sistema de autorização robusto com validação de token, verificação de usuário ativo e proteção contra informações sensíveis.
+def role_required(required_roles):
+    def decorator(fn):
+        @functools.wraps(fn)
+        @jwt_required()
+        def wrapper(*args, **kwargs):
+            try:
+                current_user_id = get_jwt_identity()
+                
+                #Validação robusta do ID do usuário
+                if not current_user_id or not is_valid_objectid(current_user_id):
+                    return jsonify({"msg": "Token inválido"}), 401
+                
+                #Busca usuário com projeção segura
+                user_data = User.collection().find_one(
+                    {"_id": ObjectId(current_user_id)},
+                    {"username": 1, "role": 1, "active": 1}  #Apenas campos necessários
+                )
+                
+                if not user_data:
+                    return jsonify({"msg": "Usuário não encontrado"}), 404
+                
+                #Verifica se usuário está ativo
+                if not user_data.get('active', True):
+                    return jsonify({"msg": "Usuário desativado"}), 403
+                
+                #Verificação de autorização
+                if user_data.get('role') not in required_roles:
+                    logging.warning(f"Tentativa de acesso não autorizado: {current_user_id}")
+                    return jsonify({"msg": "Acesso negado: Nível de permissão insuficiente"}), 403
+                    
+                return fn(*args, **kwargs)
+            except Exception as e:
+                logging.error(f"Erro na verificação de role: {str(e)}")
+                return jsonify({"msg": "Erro de autorização"}), 500
+        return wrapper
+    return decorator

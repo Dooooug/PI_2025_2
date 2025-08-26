@@ -10,10 +10,25 @@ from app.models import User
 # Importa o decorador role_required e a constante ROLES do módulo utils
 from app.utils import ROLES, role_required
 
-# Cria um Blueprint para as rotas de usuário
+# user_routes.py (adições necessárias)
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from security_config import limiter, RATE_LIMITS, get_limiter_key
+
+
+
+limiter = Limiter(key_func=get_remote_address)
+
+
+# Configurar o limiter após criar o blueprint
 user_bp = Blueprint('user', __name__)
+limiter.limit(RATE_LIMITS['login'])(user_bp)  # Limite geral para o blueprint
+
+
 
 # Rota de registro de usuário
+#CODIGO ANTES
+'''
 @user_bp.route('/register', methods=['POST'])
 def register():
     """
@@ -27,6 +42,55 @@ def register():
     nome_do_usuario = data.get('nome_do_usuario') # ATUALIZADO: Usando 'nome_do_usuario'
     email = data.get('email')
     senha = data.get('senha')
+'''
+
+#CODIGO DEPOIS
+#Sistema completo de validação e sanitização de dados de entrada.
+import re
+from email_validator import validate_email, EmailNotValidError
+
+def validate_email_address(email):
+    """Valida endereço de email"""
+    try:
+        v = validate_email(email)
+        return v["email"]
+    except EmailNotValidError:
+        return None
+
+def validate_password(password):
+    """Valida força da senha"""
+    if len(password) < 8:
+        return False
+    if not re.search(r'[A-Z]', password):
+        return False
+    if not re.search(r'[a-z]', password):
+        return False
+    if not re.search(r'[0-9]', password):
+        return False
+    return True
+
+def sanitize_input(input_str, max_length=255):
+    """Remove caracteres potencialmente perigosos"""
+    if not input_str or not isinstance(input_str, str):
+        return None
+    cleaned = re.sub(r'[<>\(\)\&\|\;\`\$]', '', input_str)
+    return cleaned[:max_length] if cleaned else None
+
+@user_bp.route('/register', methods=['POST'])
+@limiter.limit("2 per hour")  # Limita a 2 registros por hora por IP
+def register():
+    data = request.get_json()
+    
+    # ✅ Validação e sanitização de entrada
+    nome_do_usuario = sanitize_input(data.get('nome_do_usuario'))
+    email = validate_email_address(data.get('email'))
+    senha = data.get('senha')
+    
+    if not nome_do_usuario or not email or not senha:
+        return jsonify({"msg": "Dados inválidos"}), 400
+        
+    if not validate_password(senha):
+        return jsonify({"msg": "Senha deve ter pelo menos 8 caracteres com letras maiúsculas, minúsculas e números"}), 400
 
     # Extrai o nível (role) do JSON. Se não for fornecido, usa VIEWER como padrão.
     # Mantém a lógica de role conforme solicitado, mas extrai da chave 'nivel'
@@ -91,6 +155,7 @@ def register():
 
 # Rota de login (sem alterações necessárias aqui para este problema)
 @user_bp.route('/login', methods=['POST'])
+@limiter.limit(RATE_LIMITS['login'])  # Limita a 5 tentativas de login por minuto por IP
 def login():
     """
     Autentica um usuário e retorna um token de acesso JWT.
