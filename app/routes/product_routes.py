@@ -206,13 +206,32 @@ def list_products():
 # ============================================================
 # GET PRODUCT BY ID
 # ============================================================
+#COMENTADO CODIGO ANTES
+#@product_bp.route('/products/<product_id>', methods=['GET'])
+#@role_required([ROLES['ADMIN'], ROLES['ANALYST']])
+#def get_product(product_id):
+#    try:
+#        _id = ObjectId(product_id)
+#    except Exception:
+#        return jsonify({"msg": "ID do produto inválido."}), 400
+#
+
+#Adicionada validação robusta de ObjectId para prevenir NoSQL injection. codigo novo
+def is_valid_objectid(id_str):
+    """Valida se uma string é um ObjectId válido"""
+    try:
+        ObjectId(id_str)
+        return True
+    except:
+        return False
+
 @product_bp.route('/products/<product_id>', methods=['GET'])
 @role_required([ROLES['ADMIN'], ROLES['ANALYST']])
 def get_product(product_id):
-    try:
-        _id = ObjectId(product_id)
-    except Exception:
+    # ✅ Validação contra NoSQL injection
+    if not is_valid_objectid(product_id):
         return jsonify({"msg": "ID do produto inválido."}), 400
+
 
     try:
         doc = Product.collection().find_one({"_id": _id})
