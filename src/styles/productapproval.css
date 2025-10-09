@@ -112,3 +112,24 @@
     font-size: 0.9em;
   }
 }
+
+.pdf-actions {
+  margin-bottom: 15px;
+  font-size: 0.9em;
+}
+
+.pdf-actions span {
+  font-weight: bold;
+  margin-right: 8px;
+}
+
+.pdf-link {
+  margin-right: 15px;
+  color: #1e90ff;
+  text-decoration: none;
+  transition: text-decoration 0.2s;
+}
+
+.pdf-link:hover {
+  text-decoration: underline;
+}
