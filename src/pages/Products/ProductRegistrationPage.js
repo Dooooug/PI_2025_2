@@ -6,7 +6,9 @@ import PopupMessage from '../../components/Common/PopupMessage';
 import useAuth from '../../hooks/useAuth';
 import { ROLES } from '../../utils/constants';
 
-// IMAGENS GHS
+// =============================================================================
+// ✅ CORREÇÃO: As imagens são importadas aqui...
+// =============================================================================
 import explosivoImg from '../../assets/explosivo.png';
 import gasPressaoImg from '../../assets/gas_pressao.png';
 import inflamavelImg from '../../assets/inflamavel.png';
@@ -20,89 +22,44 @@ import OxidanteImg from '../../assets/oxidante.png';
 // Estilo
 import '../../styles/productform.css';
 
-// LISTAS DE SELEÇÃO
+// =============================================================================
+// ✅ CORREÇÃO: As listas são definidas aqui...
+// =============================================================================
 const empresas = [
-  'AMARIS DO BRASIL ASSESSORIA EMPRESARIAL',
-  'AMG - SOLUCOES INDUSTRIAIS',
-  'BANCO ITAÚ S/A',
-  'BRAVO SERV. LOG. LTDA - FÁBRICA',
-  'CALMITEC CALDEIRARIA E MONTAGENS INDUSTRIAIS',
-  'CAVALCANTI & ANDRADE ENGENHARIA E CONSULTORIA INDUSTRIAL',
-  'CONNECTIS TECNOLOGIA DA INFORMAÇÃO E COMUNICAÇÃO DO BRASIL',
-  'DATUM K ENGENHARIA',
-  'ECOSCIENCES - SOLUCOES AMBIENTAIS',
-  'EMPLOYER ORGANIZAÇÃO DE RECURSOS HUMANOS S.A',
-  'EMPLOYER RURAL',
-  'ENTERPRISE SERVICES BRASIL SERVICOS DE TECNOLOGIA',
-  'EOLIVEIRA SERVICOS',
-  'FERNANDO DA SILVA DE OLIVEIRA CONSTRUCOES',
-  'FLP CORREA TRANSPORTES',
-  'FM2C SERVICOS DE MANUTENCAO',
-  'FM2C SERVIÇOS GERAIS',
-  'G4S INTERATIVA SERVICE',
-  'GÁS VANGUARDA SEGURANCA E VIGILANCIA',
-  'GAP - GESTAO AMBIENTAL & PROJETOS',
-  'GEOAMBIENTE SOCIEDADE ANONIMA',
-  'GRI KOLETA - GERENCIAMENTO DE RESÍDUOS INDUSTRIAIS S.A.',
-  'IGM SERVIÇOS LOGISTICOS',
-  'ITSSEG CORRETORA DE SEGUROS S.A.',
-  'LOSS CONTROL CONSULTORIA E SERVIÇOS',
-  'LUBRIN LUBRIFICAÇÃO INDUSTRIAL EIRELI',
-  'LUCIMEIRE PEREIRA DOS SANTOS RODRIGUES - EMPILHADEIRAS',
-  'LUIS MARCELO CUNHA BOCHKOVITCH',
-  'MADINI ASSESSORIA EMPRESARIAL',
-  'MARCATO ENGENHARIA E COMERCIO',
-  'MAX-M EMPILHADEIRAS',
-  'NORDİKA DO BRASIL CONSULTORIA',
-  'OVERHAUL BRASIL',
-  'PLANIT GERENCIAMENTO DE PROJETOS',
-  'PROMON ENGENHARIA',
-  'SAFRA COMERCIO DE CAFE IMPORTACAO E EXPORTACAO',
-  'SATURNO INSTALACOES INDUSTRIAIS LTDA',
-  'SCR SINALIZAÇÃO E COMERCIO EIRELI',
-  'SENIOR SISTEMAS S/A',
-  'SIMPRESS COMERCIO LOCACAO E SERVICOS',
-  'SODEXO',
-  'ULMA PACKAGING',
-  'UNIPAC'
+  'AMARIS DO BRASIL ASSESSORIA EMPRESARIAL', 'AMG - SOLUCOES INDUSTRIAIS', 'BANCO ITAÚ S/A', 'BRAVO SERV. LOG. LTDA - FÁBRICA',
+  'CALMITEC CALDEIRARIA E MONTAGENS INDUSTRIAIS', 'CAVALCANTI & ANDRADE ENGENHARIA E CONSULTORIA INDUSTRIAL', 'CONNECTIS TECNOLOGIA DA INFORMAÇÃO E COMUNICAÇÃO DO BRASIL',
+  'DATUM K ENGENHARIA', 'ECOSCIENCES - SOLUCOES AMBIENTAIS', 'EMPLOYER ORGANIZAÇÃO DE RECURSOS HUMANOS S.A', 'EMPLOYER RURAL',
+  'ENTERPRISE SERVICES BRASIL SERVICOS DE TECNOLOGIA', 'EOLIVEIRA SERVICOS', 'FERNANDO DA SILVA DE OLIVEIRA CONSTRUCOES',
+  'FLP CORREA TRANSPORTES', 'FM2C SERVICOS DE MANUTENCAO', 'FM2C SERVIÇOS GERAIS', 'G4S INTERATIVA SERVICE', 'GÁS VANGUARDA SEGURANCA E VIGILANCIA',
+  'GAP - GESTAO AMBIENTAL & PROJETOS', 'GEOAMBIENTE SOCIEDADE ANONIMA', 'GRI KOLETA - GERENCIAMENTO DE RESÍDUOS INDUSTRIAIS S.A.',
+  'IGM SERVIÇOS LOGISTICOS', 'ITSSEG CORRETORA DE SEGUROS S.A.', 'LOSS CONTROL CONSULTORIA E SERVIÇOS', 'LUBRIN LUBRIFICAÇÃO INDUSTRIAL EIRELI',
+  'LUCIMEIRE PEREIRA DOS SANTOS RODRIGUES - EMPILHADEIRAS', 'LUIS MARCELO CUNHA BOCHKOVITCH', 'MADINI ASSESSORIA EMPRESARIAL',
+  'MARCATO ENGENHARIA E COMERCIO', 'MAX-M EMPILHADEIRAS', 'NORDİKA DO BRASIL CONSULTORIA', 'OVERHAUL BRASIL', 'PLANIT GERENCIAMENTO DE PROJETOS',
+  'PROMON ENGENHARIA', 'SAFRA COMERCIO DE CAFE IMPORTACAO E EXPORTACAO', 'SATURNO INSTALACOES INDUSTRIAIS LTDA', 'SCR SINALIZAÇÃO E COMERCIO EIRELI',
+  'SENIOR SISTEMAS S/A', 'SIMPRESS COMERCIO LOCACAO E SERVICOS', 'SODEXO', 'ULMA PACKAGING', 'UNIPAC'
 ];
 const local_de_armazenamento = [
-  'Almoxarifado',
-  'Armário corta fogo',
-  'Armário de padrões',
-  'Armário de padrões internos',
-  'Armário Laboratório EPAR',
-  'Armários da áreas de embalagens',
-  'Calderaria',
-  'Casa de tintas',
-  'Central de gases do LCQ',
-  'Central de gases do LCQCalderaria',
-  'Civil',
-  'Container Lubrin',
-  'Depósito LCQ no DPA',
-  'DPA',
-  'DPA / Apollo',
-  'DPA / ApolloLogin',
-  'Geladeira de inflamáveis',
-  'Lab. EPAR',
-  'Laboratórios',
-  'Lavanderia',
-  'Login',
-  'LoginHSILDPASala da Brigada',
-  'Manutenção',
-  'Manutenção FM2C',
-  'Não utilizado',
-  'T-2450/52A/52B - area 24',
-  'T-2503 / T-2506 - area 25A',
-  'Tancagem',
-  'TancagemDPA / Apollo',
-  'TancagemDPA / ApolloLogin',
-  'TancagemLogin',
-  'Toller'
+  'Almoxarifado', 'Armário corta fogo', 'Armário de padrões', 'Armário de padrões internos', 'Armário Laboratório EPAR', 'Armários da áreas de embalagens',
+  'Calderaria', 'Casa de tintas', 'Central de gases do LCQ', 'Central de gases do LCQCalderaria', 'Civil', 'Container Lubrin', 'Depósito LCQ no DPA', 'DPA',
+  'DPA / Apollo', 'DPA / ApolloLogin', 'Geladeira de inflamáveis', 'Lab. EPAR', 'Laboratórios', 'Lavanderia', 'Login', 'LoginHSILDPASala da Brigada',
+  'Manutenção', 'Manutenção FM2C', 'Não utilizado', 'T-2450/52A/52B - area 24', 'T-2503 / T-2506 - area 25A', 'Tancagem', 'TancagemDPA / Apollo',
+  'TancagemDPA / ApolloLogin', 'TancagemLogin', 'Toller'
 ];
 
+function isValidCasNumber(casString) {
+  if (!/^\d{2,7}-\d{2}-\d$/.test(casString)) return false;
+  const digits = casString.replace(/-/g, '');
+  const checkDigit = parseInt(digits.slice(-1), 10);
+  const casDigitsToCheck = digits.slice(0, -1);
+  let totalSum = 0;
+  const reversedDigits = casDigitsToCheck.split('').reverse();
+  for (let i = 0; i < reversedDigits.length; i++) {
+    totalSum += parseInt(reversedDigits[i], 10) * (i + 1);
+  }
+  return (totalSum % 10) === checkDigit;
+}
+
 const ProductRegistrationPage = () => {
-  // --- LÓGICA E ESTADOS (SEÇÃO FUNCIONAL) ---
   const navigate = useNavigate();
   const { user } = useAuth();
   const [message, setMessage] = useState('');
@@ -115,9 +72,10 @@ const ProductRegistrationPage = () => {
     palavra_de_perigo: '', categoria: '',
   });
   const [substancias, setSubstancias] = useState([
-    { nome: '', cas: '', concentracao: '' }
+    { nome: '', cas: '', concentracao: '', casError: null }
   ]);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [isFormInvalid, setIsFormInvalid] = useState(true);
 
   useEffect(() => {
     if (!user || (user.role !== ROLES.ADMIN && user.role !== ROLES.ANALYST)) {
@@ -126,6 +84,15 @@ const ProductRegistrationPage = () => {
       setTimeout(() => { navigate('/app/dashboard'); }, 3000);
     }
   }, [user, navigate]);
+
+  useEffect(() => {
+    const validateForm = () => {
+      const hasRequiredError = !product.nome_do_produto.trim() || !product.fornecedor.trim() || !product.empresa.trim() || !product.estado_fisico.trim() || !product.local_de_armazenamento.trim() || !selectedFile;
+      const hasCasError = substancias.some(s => s.casError);
+      setIsFormInvalid(hasRequiredError || hasCasError);
+    };
+    validateForm();
+  }, [product, substancias, selectedFile]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -142,10 +109,17 @@ const ProductRegistrationPage = () => {
     const { name, value } = event.target;
     const newSubs = [...substancias];
     newSubs[index][name] = value;
+    if (name === 'cas') {
+      if (value.trim() && !isValidCasNumber(value)) {
+        newSubs[index].casError = 'Número CAS inválido.';
+      } else {
+        newSubs[index].casError = null;
+      }
+    }
     setSubstancias(newSubs);
   };
   const handleAddSubstancia = () => {
-    setSubstancias([...substancias, { nome: '', cas: '', concentracao: '' }]);
+    setSubstancias([...substancias, { nome: '', cas: '', concentracao: '', casError: null }]);
   };
   const handleRemoveSubstancia = (index) => {
     const newSubs = substancias.filter((_, i) => i !== index);
@@ -156,24 +130,17 @@ const ProductRegistrationPage = () => {
   };
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isFormInvalid) {
+      setMessage('Verifique os campos obrigatórios e os números CAS antes de enviar.');
+      setShowMessage(true);
+      return;
+    }
     setLoading(true);
     setMessage('');
     setShowMessage(false);
-    if (!selectedFile) {
-      setMessage('É obrigatório anexar uma FDS para salvar o produto.');
-      setShowMessage(true);
-      setLoading(false);
-      return;
-    }
-    if (!product.nome_do_produto.trim() || !product.fornecedor.trim() || !product.empresa.trim() || !product.estado_fisico.trim() || !product.local_de_armazenamento.trim() || (product.perigos_fisicos.length === 0 && product.perigos_meio_ambiente.length === 0 && product.perigos_saude.length === 0)) {
-      setMessage('Preencha todos os campos obrigatórios e selecione ao menos uma classificação GHS.');
-      setShowMessage(true);
-      setLoading(false);
-      return;
-    }
     const formData = new FormData();
     formData.append('file', selectedFile);
-    const substanciasValidas = substancias.filter(s => s.nome.trim() && s.cas.trim() && s.concentracao.trim());
+    const substanciasValidas = substancias.filter(s => s.nome.trim() || s.cas.trim() || s.concentracao.trim());
     const productDataToSend = { ...product, substancias: substanciasValidas };
     formData.append('productData', JSON.stringify(productDataToSend));
     try {
@@ -183,12 +150,10 @@ const ProductRegistrationPage = () => {
       setShowMessage(true);
       e.target.reset();
       setProduct({
-        qtade_maxima_armazenada: '', nome_do_produto: '', fornecedor: '',
-        estado_fisico: '', local_de_armazenamento: '', empresa: '',
-        perigos_fisicos: [], perigos_saude: [], perigos_meio_ambiente: [],
-        palavra_de_perigo: '', categoria: '',
+        qtade_maxima_armazenada: '', nome_do_produto: '', fornecedor: '', estado_fisico: '', local_de_armazenamento: '', empresa: '',
+        perigos_fisicos: [], perigos_saude: [], perigos_meio_ambiente: [], palavra_de_perigo: '', categoria: '',
       });
-      setSubstancias([{ nome: '', cas: '', concentracao: '' }]);
+      setSubstancias([{ nome: '', cas: '', concentracao: '', casError: null }]);
       setSelectedFile(null);
     } catch (error) {
       console.error('Erro ao adicionar produto:', error);
@@ -200,12 +165,10 @@ const ProductRegistrationPage = () => {
     }
   };
 
-  // --- ESTRUTURA VISUAL (JSX) ---
   return (
     <div className="product-form">
       <h2>Cadastro de Produtos</h2>
       <form onSubmit={handleSubmit}>
-        {/* Card dados básicos com a estrutura corrigida */}
         <div className="card">
           <div className="form-group">
             <label htmlFor="nome_do_produto">Nome do Produto:</label>
@@ -221,6 +184,9 @@ const ProductRegistrationPage = () => {
           </div>
           <div className="form-group">
             <label htmlFor="empresa">Empresa:</label>
+            {/* ============================================================================= */}
+            {/* ✅ CORREÇÃO: ...e a variável 'empresas' é usada aqui com .map() */}
+            {/* ============================================================================= */}
             <select id="empresa" name="empresa" value={product.empresa} onChange={handleInputChange}>
               <option value="">Selecione...</option>
               {empresas.map((empresa, i) => <option key={i} value={empresa}>{empresa}</option>)}
@@ -237,6 +203,9 @@ const ProductRegistrationPage = () => {
           </div>
           <div className="form-group">
             <label htmlFor="local_de_armazenamento">Local de Armazenamento:</label>
+            {/* ============================================================================= */}
+            {/* ✅ CORREÇÃO: ...e a variável 'local_de_armazenamento' é usada aqui */}
+            {/* ============================================================================= */}
             <select id="local_de_armazenamento" name="local_de_armazenamento" value={product.local_de_armazenamento} onChange={handleInputChange}>
               <option value="">Selecione...</option>
               {local_de_armazenamento.map((local, i) => <option key={i} value={local}>{local}</option>)}
@@ -244,25 +213,27 @@ const ProductRegistrationPage = () => {
           </div>
         </div>
 
-        {/* Substâncias */}
         <div className="substance-form">
           <h2>Substâncias</h2>
           {substancias.map((s, i) => (
             <div key={i} className="substance-fields">
               <input type="text" name="nome" placeholder="Substância" value={s.nome} onChange={(e) => handleSubstanciaChange(i, e)}/>
-              <input type="text" name="cas" placeholder="Número CAS" value={s.cas} onChange={(e) => handleSubstanciaChange(i, e)}/>
+              <div className="cas-input-wrapper">
+                <input type="text" name="cas" placeholder="Número CAS (ex: 7732-18-5)" value={s.cas} onChange={(e) => handleSubstanciaChange(i, e)} className={s.casError ? 'input-invalid' : ''}/>
+                {s.casError && <span className="error-message">{s.casError}</span>}
+              </div>
               <input type="text" name="concentracao" placeholder="Concentração (%)" value={s.concentracao} onChange={(e) => handleSubstanciaChange(i, e)}/>
               {substancias.length > 1 && <button type="button" className="remove-substance-btn" onClick={() => handleRemoveSubstancia(i)}>-</button>}
             </div>
           ))}
           <button type="button" className="add-substance-btn" onClick={handleAddSubstancia}>+</button>
         </div>
-
-        {/* Classificação GHS */}
+        
+        {/* ============================================================================= */}
+        {/* ✅ CORREÇÃO: ...e as variáveis de imagem são usadas nos atributos 'src' aqui */}
+        {/* ============================================================================= */}
         <div className="card ghs-card">
-          <div className="ghs-header">
-            <h2>Classificação GHS</h2>
-          </div>
+          <div className="ghs-header"><h2>Classificação GHS</h2></div>
           <div className="ghs-container-horizontal">
             <div className="ghs-group-horizontal">
               <label>Perigos Físicos</label>
@@ -291,34 +262,24 @@ const ProductRegistrationPage = () => {
             </div>
           </div>
           <div className="ghs-bottom-fields">
-            <label>Palavra de Perigo
-              <input type="text" name="palavra_de_perigo" value={product.palavra_de_perigo} onChange={handleInputChange}/>
-            </label>
-            <label>Categoria
-              <input type="text" name="categoria" value={product.categoria} onChange={handleInputChange}/>
-            </label>
+            <label>Palavra de Perigo<input type="text" name="palavra_de_perigo" value={product.palavra_de_perigo} onChange={handleInputChange}/></label>
+            <label>Categoria<input type="text" name="categoria" value={product.categoria} onChange={handleInputChange}/></label>
           </div>
         </div>
 
-        {/* Novo card para o input de arquivo */}
         <div className="card">
           <h2>Anexar FDS (Obrigatório)</h2>
-          <input
-            type="file"
-            accept=".pdf"
-            onChange={handleFileChange}
-            required
-          />
+          <input type="file" accept=".pdf" onChange={handleFileChange} required/>
           {selectedFile && <p>Arquivo selecionado: {selectedFile.name}</p>}
         </div>
         
-        {/* Botões */}
         <div className="submit-button">
-          <button type="submit" disabled={loading}>{loading ? 'Enviando...' : 'Cadastrar Produto com FDS'}</button>
+          <button type="submit" disabled={loading || isFormInvalid}>
+            {loading ? 'Enviando...' : 'Cadastrar Produto com FDS'}
+          </button>
         </div>
       </form>
 
-      {/* Mensagem de feedback */}
       {showMessage && (
         <PopupMessage
           message={message}
