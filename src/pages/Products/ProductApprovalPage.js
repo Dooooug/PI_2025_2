@@ -145,7 +145,8 @@ const ProductApprovalPage = () => {
               <h3>{product.nome_do_produto} ({product.codigo})</h3>
               <p><strong>Fornecedor:</strong> {product.fornecedor}</p>
               <p><strong>Empresa:</strong> {product.empresa}</p>
-              <p><strong>Quantidade:</strong> {product.qtade_maxima_armazenada}</p>
+              <p><strong>Quantidade:</strong> {product.quantidade_armazenada}</p>
+              <p><strong>Unidade de Embalagem:</strong> {product.unidade_embalagem}</p>
               <p><strong>Estado Físico:</strong> {product.estado_fisico}</p>
               <p><strong>Local de Armazenamento:</strong> {product.local_de_armazenamento}</p>
               <p><strong>Data de Criação:</strong> {new Date(product.created_at).toLocaleDateString()}</p>

@@ -83,7 +83,7 @@ function ProductListPage() {
         header: 'Código',
         cell: (info) => info.getValue(),
       },
-      {
+           {
         accessorKey: 'nome_do_produto',
         header: 'Nome do Produto',
         cell: (info) => info.getValue(),
@@ -94,9 +94,43 @@ function ProductListPage() {
         cell: (info) => info.getValue(),
       },
       {
-        accessorKey: 'status',
-        header: 'Status',
+        accessorKey: 'empresa',
+        header: 'Empresa',
         cell: (info) => info.getValue(),
+      },
+      {
+        accessorKey: 'quantidade_armazenada',
+        header: 'Quantidade Armazenada',
+        cell: (info) => info.getValue(),
+      },
+       {
+        accessorKey: 'unidade_embalagem',
+        header: 'Embalagem',
+        cell: (info) => info.getValue(),
+      },
+        {
+        accessorKey: 'estado_fisico',
+        header: 'Estado Físico',
+        cell: (info) => info.getValue(),
+      },
+      {
+        accessorKey: 'substancias',
+        header: 'Substâncias',
+        // A função 'cell' personaliza o que é exibido na tela.
+        cell: (info) => {
+          // 1. Pega o valor da célula, que neste caso é a lista de substâncias.
+          const substancias = info.getValue();
+
+          // 2. Se não houver substâncias ou a lista estiver vazia, não exibe nada.
+          if (!substancias || substancias.length === 0) {
+            return null; // ou você pode retornar um traço: return '-';
+          }
+
+          // 3. Mapeia a lista para pegar apenas o nome de cada substância
+          //    e junta tudo em um único texto, separado por ", ".
+          //    Exemplo de resultado: "Isopropanol, Etanol, Metanol"
+          return substancias.map(s => s.nome).join(', ');
+        },
       },
       {
         accessorKey: 'created_at',
@@ -130,6 +164,12 @@ function ProductListPage() {
           return 'N/A';
         },
       },
+      {
+        accessorKey: 'status',
+        header: 'Status',
+        cell: (info) => info.getValue(),
+      },
+
       {
         id: 'actions',
         header: 'Ações',

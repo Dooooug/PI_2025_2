@@ -6,9 +6,7 @@ import PopupMessage from '../../components/Common/PopupMessage';
 import useAuth from '../../hooks/useAuth';
 import { ROLES } from '../../utils/constants';
 
-// =============================================================================
-// ✅ CORREÇÃO: As imagens são importadas aqui...
-// =============================================================================
+// Importações de imagens (sem alterações)
 import explosivoImg from '../../assets/explosivo.png';
 import gasPressaoImg from '../../assets/gas_pressao.png';
 import inflamavelImg from '../../assets/inflamavel.png';
@@ -22,9 +20,7 @@ import OxidanteImg from '../../assets/oxidante.png';
 // Estilo
 import '../../styles/productform.css';
 
-// =============================================================================
-// ✅ CORREÇÃO: As listas são definidas aqui...
-// =============================================================================
+// Listas de dados (sem alterações)
 const empresas = [
   'AMARIS DO BRASIL ASSESSORIA EMPRESARIAL', 'AMG - SOLUCOES INDUSTRIAIS', 'BANCO ITAÚ S/A', 'BRAVO SERV. LOG. LTDA - FÁBRICA',
   'CALMITEC CALDEIRARIA E MONTAGENS INDUSTRIAIS', 'CAVALCANTI & ANDRADE ENGENHARIA E CONSULTORIA INDUSTRIAL', 'CONNECTIS TECNOLOGIA DA INFORMAÇÃO E COMUNICAÇÃO DO BRASIL',
@@ -45,6 +41,8 @@ const local_de_armazenamento = [
   'Manutenção', 'Manutenção FM2C', 'Não utilizado', 'T-2450/52A/52B - area 24', 'T-2503 / T-2506 - area 25A', 'Tancagem', 'TancagemDPA / Apollo',
   'TancagemDPA / ApolloLogin', 'TancagemLogin', 'Toller'
 ];
+const unidadesDeEmbalagem = ['Bag(s)', 'Galões','Galão', 'Litro(s)', 'Pacote(s)', 'Peça(s)', 'Unidade(s)','Tonelada(s)','Tambore(s)'];
+
 
 function isValidCasNumber(casString) {
   if (!/^\d{2,7}-\d{2}-\d$/.test(casString)) return false;
@@ -65,12 +63,23 @@ const ProductRegistrationPage = () => {
   const [message, setMessage] = useState('');
   const [showMessage, setShowMessage] = useState(false);
   const [loading, setLoading] = useState(false);
+  
+  // O estado já está correto, com os campos separados
   const [product, setProduct] = useState({
-    qtade_maxima_armazenada: '', nome_do_produto: '', fornecedor: '',
-    estado_fisico: '', local_de_armazenamento: '', empresa: '',
-    perigos_fisicos: [], perigos_saude: [], perigos_meio_ambiente: [],
-    palavra_de_perigo: '', categoria: '',
+    quantidade_armazenada: '',
+    unidade_embalagem: '',
+    nome_do_produto: '', 
+    fornecedor: '',
+    estado_fisico: '', 
+    local_de_armazenamento: '', 
+    empresa: '',
+    perigos_fisicos: [], 
+    perigos_saude: [], 
+    perigos_meio_ambiente: [],
+    palavra_de_perigo: '', 
+    categoria: '',
   });
+
   const [substancias, setSubstancias] = useState([
     { nome: '', cas: '', concentracao: '', casError: null }
   ]);
@@ -128,6 +137,10 @@ const ProductRegistrationPage = () => {
   const handleFileChange = (e) => {
     setSelectedFile(e.target.files[0]);
   };
+
+  // =============================================================================
+  // ✅ ALTERAÇÃO PRINCIPAL: A função handleSubmit foi simplificada.
+  // =============================================================================
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isFormInvalid) {
@@ -140,17 +153,30 @@ const ProductRegistrationPage = () => {
     setShowMessage(false);
     const formData = new FormData();
     formData.append('file', selectedFile);
+    
+    // 1. O estado 'product' já possui a estrutura correta que o backend espera.
+    //    (com 'quantidade_armazenada' e 'unidade_embalagem' como chaves principais).
+    //    Portanto, não precisamos mais criar um objeto aninhado.
     const substanciasValidas = substancias.filter(s => s.nome.trim() || s.cas.trim() || s.concentracao.trim());
-    const productDataToSend = { ...product, substancias: substanciasValidas };
+    
+    const productDataToSend = { 
+        ...product, // Copiamos todos os dados do estado
+        substancias: substanciasValidas // E adicionamos a lista de substâncias filtrada
+    };
+
+    // 2. Enviamos o objeto 'productDataToSend' diretamente.
     formData.append('productData', JSON.stringify(productDataToSend));
+    
     try {
       const response = await productService.createProductWithPdf(formData);
       const newProduct = response.product;
       setMessage(`✅ Produto cadastrado com sucesso! Código: ${newProduct.codigo}`);
       setShowMessage(true);
       e.target.reset();
+      
+      // Resetamos o formulário para o estado inicial correto.
       setProduct({
-        qtade_maxima_armazenada: '', nome_do_produto: '', fornecedor: '', estado_fisico: '', local_de_armazenamento: '', empresa: '',
+        quantidade_armazenada: '', unidade_embalagem: '', nome_do_produto: '', fornecedor: '', estado_fisico: '', local_de_armazenamento: '', empresa: '',
         perigos_fisicos: [], perigos_saude: [], perigos_meio_ambiente: [], palavra_de_perigo: '', categoria: '',
       });
       setSubstancias([{ nome: '', cas: '', concentracao: '', casError: null }]);
@@ -174,19 +200,41 @@ const ProductRegistrationPage = () => {
             <label htmlFor="nome_do_produto">Nome do Produto:</label>
             <input id="nome_do_produto" type="text" name="nome_do_produto" value={product.nome_do_produto} onChange={handleInputChange}/>
           </div>
-          <div className="form-group">
-            <label htmlFor="qtade_maxima_armazenada">Quantidade Máx. Armazenada:</label>
-            <input id="qtade_maxima_armazenada" type="text" name="qtade_maxima_armazenada" value={product.qtade_maxima_armazenada} onChange={handleInputChange}/>
+          
+          <div className="form-group-split">
+            <div className="form-group form-group-quantity"> 
+              <label htmlFor="quantidade_armazenada">Quantidade Armazenada:</label>
+              <input 
+                id="quantidade_armazenada" 
+                type="number" 
+                name="quantidade_armazenada" 
+                value={product.quantidade_armazenada} 
+                onChange={handleInputChange}
+                placeholder="Ex: 100"
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="unidade_embalagem">Embalagem:</label>
+              <select 
+                id="unidade_embalagem" 
+                name="unidade_embalagem" 
+                value={product.unidade_embalagem} 
+                onChange={handleInputChange}
+              >
+                <option value="">Selecione...</option>
+                {unidadesDeEmbalagem.map((unidade, i) => (
+                  <option key={i} value={unidade}>{unidade}</option>
+                ))}
+              </select>
+            </div>
           </div>
+
           <div className="form-group">
             <label htmlFor="fornecedor">Fornecedor:</label>
             <input id="fornecedor" type="text" name="fornecedor" value={product.fornecedor} onChange={handleInputChange}/>
           </div>
           <div className="form-group">
             <label htmlFor="empresa">Empresa:</label>
-            {/* ============================================================================= */}
-            {/* ✅ CORREÇÃO: ...e a variável 'empresas' é usada aqui com .map() */}
-            {/* ============================================================================= */}
             <select id="empresa" name="empresa" value={product.empresa} onChange={handleInputChange}>
               <option value="">Selecione...</option>
               {empresas.map((empresa, i) => <option key={i} value={empresa}>{empresa}</option>)}
@@ -203,9 +251,6 @@ const ProductRegistrationPage = () => {
           </div>
           <div className="form-group">
             <label htmlFor="local_de_armazenamento">Local de Armazenamento:</label>
-            {/* ============================================================================= */}
-            {/* ✅ CORREÇÃO: ...e a variável 'local_de_armazenamento' é usada aqui */}
-            {/* ============================================================================= */}
             <select id="local_de_armazenamento" name="local_de_armazenamento" value={product.local_de_armazenamento} onChange={handleInputChange}>
               <option value="">Selecione...</option>
               {local_de_armazenamento.map((local, i) => <option key={i} value={local}>{local}</option>)}
@@ -213,6 +258,7 @@ const ProductRegistrationPage = () => {
           </div>
         </div>
 
+        {/* O restante do formulário (substâncias, GHS, etc.) continua igual */}
         <div className="substance-form">
           <h2>Substâncias</h2>
           {substancias.map((s, i) => (
@@ -229,9 +275,6 @@ const ProductRegistrationPage = () => {
           <button type="button" className="add-substance-btn" onClick={handleAddSubstancia}>+</button>
         </div>
         
-        {/* ============================================================================= */}
-        {/* ✅ CORREÇÃO: ...e as variáveis de imagem são usadas nos atributos 'src' aqui */}
-        {/* ============================================================================= */}
         <div className="card ghs-card">
           <div className="ghs-header"><h2>Classificação GHS</h2></div>
           <div className="ghs-container-horizontal">
