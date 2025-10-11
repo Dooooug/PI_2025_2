@@ -7,6 +7,7 @@ import productService from '../../services/productService'; // Service para inte
 import PopupMessage from '../../components/Common/PopupMessage'; // Componente para exibir mensagens de feedback.
 import useAuth from '../../hooks/useAuth'; // Hook customizado para obter informações do usuário logado.
 import { ROLES } from '../../utils/constants'; // Constantes com as roles (perfis) de usuário.
+import downloadservice from '../../services/downloadservice';
 
 // Importação da folha de estilos específica para esta página.
 import '../../styles/productapproval.css';
@@ -142,34 +143,35 @@ const ProductApprovalPage = () => {
           {pendingProducts.map((product) => (
             <div key={product.id} className="product-card-approval">
               <h3>{product.nome_do_produto} ({product.codigo})</h3>
-              <p>Fornecedor: {product.fornecedor}</p>
-              <p>Estado Físico: {product.estado_fisico}</p>
-              <p>Criado por: {product.created_by || product.created_by_user_id}</p>
+              <p><strong>Fornecedor:</strong> {product.fornecedor}</p>
+              <p><strong>Empresa:</strong> {product.empresa}</p>
+              <p><strong>Quantidade:</strong> {product.qtade_maxima_armazenada}</p>
+              <p><strong>Estado Físico:</strong> {product.estado_fisico}</p>
+              <p><strong>Local de Armazenamento:</strong> {product.local_de_armazenamento}</p>
+              <p><strong>Data de Criação:</strong> {new Date(product.created_at).toLocaleDateString()}</p>
+              <p><strong>Criado por:</strong> {product.created_by || product.created_by_user_id}</p>
               
+             
               {/* ================================================================= */}
-              {/* BLOCO DE VISUALIZAÇÃO E DOWNLOAD DO PDF                           */}
-              {/* Renderiza esta seção apenas se a URL do PDF existir no produto. */}
+              {/* BLOCO DE VISUALIZAÇÃO E DOWNLOAD DO PDF (CORRIGIDO)               */}
               {/* ================================================================= */}
               {product.pdf_url && (
                 <div className="pdf-actions">
                   <span>FDS:</span>
-                  {/* Link para VISUALIZAR o PDF */}
-                  <a 
-                    href={product.pdf_url} 
-                    target="_blank" // Abre o link em uma nova aba.
-                    rel="noopener noreferrer" // Medida de segurança para links `target="_blank"`.
-                    className="pdf-link"
+                  {/* Botão para VISUALIZAR o PDF */}
+                  <button 
+                    onClick={() => downloadservice.viewPdf(product.id)}
+                    className="pdf-button view"
                   >
                     Visualizar
-                  </a>
-                  {/* Link para FAZER O DOWNLOAD do PDF */}
-                  <a 
-                    href={product.pdf_url} 
-                    download // Atributo HTML5 que força o download do arquivo.
-                    className="pdf-link"
+                  </button>
+                  {/* Botão para FAZER O DOWNLOAD do PDF */}
+                  <button 
+                    onClick={() => downloadservice.downloadPdf(product.id, `${product.codigo || 'documento'}.pdf`)}
+                    className="pdf-button download"
                   >
                     Download
-                  </a>
+                  </button>
                 </div>
               )}
               
