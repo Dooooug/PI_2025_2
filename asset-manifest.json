@@ -1,0 +1,15 @@
+{
+  "files": {
+    "main.css": "/QuimidDocs_Deploy/static/css/main.6b5276b7.css",
+    "main.js": "/QuimidDocs_Deploy/static/js/main.c0423ca2.js",
+    "static/media/fundo_quimidocs.jpg": "/QuimidDocs_Deploy/static/media/fundo_quimidocs.467a2eb6d90c60d07025.jpg",
+    "static/media/logo_quimidocs-trans.png": "/QuimidDocs_Deploy/static/media/logo_quimidocs-trans.98ec403c99252123b1c1.png",
+    "index.html": "/QuimidDocs_Deploy/index.html",
+    "main.6b5276b7.css.map": "/QuimidDocs_Deploy/static/css/main.6b5276b7.css.map",
+    "main.c0423ca2.js.map": "/QuimidDocs_Deploy/static/js/main.c0423ca2.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.6b5276b7.css",
+    "static/js/main.c0423ca2.js"
+  ]
+}
